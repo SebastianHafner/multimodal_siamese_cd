@@ -6,7 +6,7 @@ import multiprocessing
 from utils import augmentations, experiment_manager, geofiles
 
 
-class AbstractS1S2CDDataset(torch.utils.data.Dataset):
+class AbstractMultimodalCDDataset(torch.utils.data.Dataset):
 
     def __init__(self, cfg: experiment_manager.CfgNode, run_type: str):
         super().__init__()
@@ -28,22 +28,22 @@ class AbstractS1S2CDDataset(torch.utils.data.Dataset):
         pass
 
     def _load_s1_img(self, aoi_id: str, year: int, month: int) -> np.ndarray:
-        file = self.root_path / aoi_id / 'sentinel1' / f'sentinel1_{aoi_id}_{year}_{month:02d}.tif'
+        file = self.root_path / aoi_id / 's1' / f's1_{aoi_id}_{year}_{month:02d}.tif'
         img, _, _ = geofiles.read_tif(file)
         img = np.clip(img[:, :, self.s1_band_indices], 0, 1)
-        return img.astype(np.float32)
+        return np.nan_to_num(img).astype(np.float32)
 
     def _load_s2_img(self, aoi_id: str, year: int, month: int) -> np.ndarray:
-        file = self.root_path / aoi_id / 'sentinel2' / f'sentinel2_{aoi_id}_{year}_{month:02d}.tif'
+        file = self.root_path / aoi_id / 's2' / f's2_{aoi_id}_{year}_{month:02d}.tif'
         img, _, _ = geofiles.read_tif(file)
         img = np.clip(img[:, :, self.s2_band_indices], 0, 1)
-        return img.astype(np.float32)
+        return np.nan_to_num(img).astype(np.float32)
 
     def _load_building_label(self, aoi_id: str, year: int, month: int) -> np.ndarray:
         file = self.root_path / aoi_id / 'buildings' / f'buildings_{aoi_id}_{year}_{month:02d}.tif'
         label, _, _ = geofiles.read_tif(file)
         label = label > 0
-        return label.astype(np.float32)
+        return np.nan_to_num(label).astype(np.float32)
 
     def _load_change_label(self, aoi_id: str, year_t1: int, month_t1: int, year_t2: int, month_t2) -> np.ndarray:
         building_t1 = self._load_building_label(aoi_id, year_t1, month_t1)
@@ -62,7 +62,7 @@ class AbstractS1S2CDDataset(torch.utils.data.Dataset):
 
 
 # dataset for urban extraction with building footprints
-class S1S2CDDataset(AbstractS1S2CDDataset):
+class MultimodalCDDataset(AbstractMultimodalCDDataset):
 
     def __init__(self, cfg: experiment_manager.CfgNode, run_type: str, no_augmentations: bool = False,
                  dataset_mode: str = None, disable_multiplier: bool = False, disable_unlabeled: bool = False):
@@ -90,9 +90,6 @@ class S1S2CDDataset(AbstractS1S2CDDataset):
             aoi_ids_unlabelled = []
             if cfg.DATALOADER.INCLUDE_UNLABELED:
                 aoi_ids_unlabelled += list(cfg.DATASET.UNLABELED_IDS)
-                metadata_test = geofiles.load_json(self.root_path / f'metadata_test.json')
-                for aoi_id, timestamps in metadata_test.items():
-                    self.metadata[aoi_id] = timestamps
             if cfg.DATALOADER.INCLUDE_UNLABELED_VALIDATION:
                 aoi_ids_unlabelled += list(cfg.DATASET.VALIDATION_IDS)
             aoi_ids_unlabelled = sorted(aoi_ids_unlabelled)
@@ -116,8 +113,8 @@ class S1S2CDDataset(AbstractS1S2CDDataset):
         aoi_id = self.aoi_ids[index]
         labeled = self.labeled[index]
 
-        timestamps = self.metadata['aois'][aoi_id]
-        timestamps = [(year, month) for year, month, masked, s1, s2 in timestamps if s1 and s2 and not masked]
+        timestamps = self.metadata[aoi_id]
+        timestamps = [(ts['year'], ts['month']) for ts in timestamps if ts['s1'] and ts['s2'] and ts['buildings'] and not ts['masked']]
 
         if self.dataset_mode == 'first_last':
             indices = [0, -1]

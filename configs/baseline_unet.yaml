@@ -2,7 +2,7 @@ _BASE_: "base.yaml"
 DEBUG: True
 
 MODEL:
-  TYPE: 'siameseunet'
+  TYPE: 'unet'
   IN_CHANNELS: 4
 
 DATALOADER:

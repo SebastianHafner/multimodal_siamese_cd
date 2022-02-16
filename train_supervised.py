@@ -34,7 +34,7 @@ def run_training(cfg):
     criterion = loss_functions.get_criterion(cfg.MODEL.LOSS_TYPE)
 
     # reset the generators
-    dataset = datasets.S1S2CDDataset(cfg=cfg, run_type='training')
+    dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='training')
     print(dataset)
 
     dataloader_kwargs = {
@@ -80,6 +80,10 @@ def run_training(cfg):
 
             global_step += 1
             epoch_float = global_step / steps_per_epoch
+
+            if cfg.DEBUG:
+                evaluation.model_evaluation(net, cfg, device, 'test', epoch_float, global_step)
+                break
 
             if global_step % cfg.LOG_FREQ == 0:
                 print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
@@ -129,6 +133,7 @@ if __name__ == '__main__':
     wandb.init(
         name=cfg.NAME,
         config=cfg,
+        entity='multimodal_siamese_cd',
         project=args.project,
         tags=['ssl', 'cd', 'siamese', 'spacenet7', ],
         mode='online' if not cfg.DEBUG else 'disabled',

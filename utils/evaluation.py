@@ -4,7 +4,7 @@ import wandb
 from utils import datasets, metrics
 
 
-def inference_loop(net, dataset: datasets.S1S2CDDataset, device: str, enable_sem: bool = False) -> dict:
+def inference_loop(net, dataset: datasets.MultimodalCDDataset, device: str, enable_sem: bool = False) -> dict:
 
     net.to(device)
     net.eval()
@@ -55,8 +55,8 @@ def inference_loop(net, dataset: datasets.S1S2CDDataset, device: str, enable_sem
 
 def model_evaluation(net, cfg, device, run_type: str, epoch: float, step: int, enable_sem: bool = False):
 
-    ds = datasets.SpaceNet7CDDataset(cfg, run_type, no_augmentations=True, dataset_mode='first_last',
-                                     disable_multiplier=True, disable_unlabeled=True)
+    ds = datasets.MultimodalCDDataset(cfg, run_type, no_augmentations=True, dataset_mode='first_last',
+                                      disable_multiplier=True, disable_unlabeled=True)
 
     data = inference_loop(net, ds, device, enable_sem)
 
