@@ -1,6 +1,9 @@
 _BASE_: "base.yaml"
 DEBUG: False
 
+TRAINER:
+  BATCH_SIZE: 2
+
 MODEL:
   TYPE: 'whatevernet'
 
