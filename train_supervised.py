@@ -68,7 +68,7 @@ def run_training(cfg):
             x_t1 = batch['x_t1'].to(device)
             x_t2 = batch['x_t2'].to(device)
 
-            logits, _, _ = net(x_t1, x_t2)
+            logits = net(x_t1, x_t2)
 
             gt_change = batch['y_change'].to(device)
 

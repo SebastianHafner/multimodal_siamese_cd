@@ -114,7 +114,7 @@ class DualStreamUNet(nn.Module):
 
         x_out = torch.concat((x_stream1, x_stream2), dim=1)
         out = self.outc(x_out)
-        return out, None, None
+        return out
 
 
 class SiameseUNet(nn.Module):
