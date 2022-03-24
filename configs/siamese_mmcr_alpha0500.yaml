@@ -2,4 +2,4 @@ _BASE_: "siamese_mmcr_base.yaml"
 DEBUG: False
 
 CONSISTENCY_TRAINER:
-  LOSS_FACTOR: 0.9
+  LOSS_FACTOR: 0.5
