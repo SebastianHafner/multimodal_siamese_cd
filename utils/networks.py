@@ -11,17 +11,18 @@ from utils import experiment_manager
 
 def create_network(cfg):
     if cfg.MODEL.TYPE == 'unet':
-        return UNet(cfg)
+        model = UNet(cfg)
     elif cfg.MODEL.TYPE == 'dualstreamunet':
-        return DualStreamUNet(cfg)
+        model =  DualStreamUNet(cfg)
     elif cfg.MODEL.TYPE == 'siameseunet':
-        return SiameseUNet(cfg)
+        model = SiameseUNet(cfg)
     elif cfg.MODEL.TYPE == 'dtsiameseunet':
-        return DualTaskSiameseUNet(cfg)
+        model = DualTaskSiameseUNet(cfg)
     elif cfg.MODEL.TYPE == 'whatevernet':
-        return WhateverNet(cfg)
+        model = WhateverNet(cfg)
     else:
         raise Exception(f'Unknown network ({cfg.MODEL.TYPE}).')
+    return nn.DataParallel(model)
 
 
 def save_checkpoint(network, optimizer, epoch, step, cfg: experiment_manager.CfgNode):
@@ -258,6 +259,50 @@ class WhateverNet(nn.Module):
             return out_fusion, out_stream1, out_stream2
         else:
             return out_fusion
+
+
+class WhateverNet2(nn.Module):
+    def __init__(self, cfg):
+        super(WhateverNet2, self).__init__()
+        self.cfg = cfg
+
+        n_classes = cfg.MODEL.OUT_CHANNELS
+        topology = cfg.MODEL.TOPOLOGY
+
+        # stream 1 (S1)
+        self.inc_stream1 = InConv(2 * len(cfg.DATALOADER.S1_BANDS), topology[0], DoubleConv)
+        self.encoder_stream1 = Encoder(cfg)
+        self.decoder_stream1 = Decoder(cfg)
+        self.outc_stream1 = OutConv(topology[0], n_classes)
+
+        # stream 2 (S2)
+        self.inc_stream2 = InConv(2 * len(cfg.DATALOADER.S2_BANDS), topology[0], DoubleConv)
+        self.encoder_stream2 = Encoder(cfg)
+        self.decoder_stream2 = Decoder(cfg)
+        self.outc_stream2 = OutConv(topology[0], n_classes)
+
+        self.outc_fusion = OutConv(2 * topology[0], n_classes)
+
+    def forward(self, x_t1: torch.Tensor, x_t2: torch.Tensor) -> tuple:
+        # stream1 (S1)
+        s1_t1, s1_t2 = x_t1[:, :len(self.cfg.DATALOADER.S1_BANDS), ], x_t2[:, :len(self.cfg.DATALOADER.S1_BANDS), ]
+        x_stream1 = torch.concat((s1_t1, s1_t2), dim=1)
+        x_stream1 = self.inc_stream1(x_stream1)
+        features_stream1 = self.encoder_stream1(x_stream1)
+        x_stream1 = self.decoder_stream1(features_stream1)
+        out_stream1 = self.outc_stream1(x_stream1)
+
+        # stream2 (S2)
+        s2_t1, s2_t2 = x_t1[:, len(self.cfg.DATALOADER.S1_BANDS):, ], x_t2[:, len(self.cfg.DATALOADER.S1_BANDS):, ]
+        x_stream2 = torch.concat((s2_t1, s2_t2), dim=1)
+        x_stream2 = self.inc_stream2(x_stream2)
+        features_stream2 = self.encoder_stream2(x_stream2)
+        x_stream2 = self.decoder_stream2(features_stream2)
+        out_stream2 = self.outc_stream2(x_stream2)
+
+        x_fusion = torch.concat((x_stream1, x_stream2), dim=1)
+        out_fusion = self.outc_fusion(x_fusion)
+        return out_fusion, out_stream1, out_stream2
 
 
 class Encoder(nn.Module):

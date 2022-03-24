@@ -89,6 +89,7 @@ def run_training(cfg):
                 sup_loss = (fusion_loss + stream1_loss + stream2_loss) / 3
                 sup_loss = cfg.CONSISTENCY_TRAINER.LOSS_FACTOR * sup_loss
 
+                sup_loss_set.append(sup_loss.item())
                 fusion_loss_set.append(fusion_loss.item())
                 stream1_loss_set.append(stream1_loss.item())
                 stream2_loss_set.append(stream2_loss.item())
