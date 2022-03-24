@@ -304,7 +304,10 @@ class WhateverNet2(nn.Module):
 
         x_fusion = torch.concat((x_stream1, x_stream2), dim=1)
         out_fusion = self.outc_fusion(x_fusion)
-        return out_fusion, out_stream1, out_stream2
+        if self.training:
+            return out_fusion, out_stream1, out_stream2
+        else:
+            return out_fusion
 
 
 class Encoder(nn.Module):
