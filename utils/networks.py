@@ -20,6 +20,8 @@ def create_network(cfg):
         model = DualTaskSiameseUNet(cfg)
     elif cfg.MODEL.TYPE == 'whatevernet':
         model = WhateverNet(cfg)
+    elif cfg.MODEL.TYPE == 'whatevernet2':
+        model = WhateverNet2(cfg)
     else:
         raise Exception(f'Unknown network ({cfg.MODEL.TYPE}).')
     return nn.DataParallel(model)
