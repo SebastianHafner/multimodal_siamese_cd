@@ -1,0 +1,8 @@
+_BASE_: "siamese_mmcr_base.yaml"
+DEBUG: False
+
+CONSISTENCY_TRAINER:
+  LOSS_FACTOR: 0.99
+
+AUGMENTATION:
+  GAMMA_CORRECTION: True

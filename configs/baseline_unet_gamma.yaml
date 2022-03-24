@@ -1,0 +1,5 @@
+_BASE_: "baseline_unet_gamma.yaml"
+DEBUG: False
+
+AUGMENTATION:
+  GAMMA_CORRECTION: True
