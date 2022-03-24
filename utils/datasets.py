@@ -112,9 +112,11 @@ class MultimodalCDDataset(AbstractMultimodalCDDataset):
 
         aoi_id = self.aoi_ids[index]
         labeled = self.labeled[index]
-
         timestamps = self.metadata[aoi_id]
-        timestamps = [(ts['year'], ts['month']) for ts in timestamps if ts['s1'] and ts['s2'] and ts['buildings'] and not ts['masked']]
+        if labeled:
+            timestamps = [(ts['year'], ts['month']) for ts in timestamps if ts['s1'] and ts['s2'] and ts['buildings'] and not ts['masked']]
+        else:
+            timestamps = [(ts['year'], ts['month']) for ts in timestamps if ts['s1'] and ts['s2']]
 
         if self.dataset_mode == 'first_last':
             indices = [0, -1]

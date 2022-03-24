@@ -18,6 +18,8 @@ def create_network(cfg):
         return SiameseUNet(cfg)
     elif cfg.MODEL.TYPE == 'dtsiameseunet':
         return DualTaskSiameseUNet(cfg)
+    elif cfg.MODEL.TYPE == 'whatevernet':
+        return WhateverNet(cfg)
     else:
         raise Exception(f'Unknown network ({cfg.MODEL.TYPE}).')
 
@@ -190,6 +192,72 @@ class DualTaskSiameseUNet(nn.Module):
         out_sem_t1 = self.outc_sem(x2_t1)
 
         return out_change, out_sem_t1, out_sem_t2
+
+
+class WhateverNet(nn.Module):
+    def __init__(self, cfg):
+        super(WhateverNet, self).__init__()
+        self.cfg = cfg
+
+        n_classes = cfg.MODEL.OUT_CHANNELS
+        topology = cfg.MODEL.TOPOLOGY
+
+        # stream 1 (S1)
+        self.inc_stream1 = InConv(len(cfg.DATALOADER.S1_BANDS), topology[0], DoubleConv)
+        self.encoder_stream1 = Encoder(cfg)
+        self.decoder_stream1 = Decoder(cfg)
+        self.outc_stream1 = OutConv(topology[0], n_classes)
+
+        # stream 2 (S2)
+        self.inc_stream2 = InConv(len(cfg.DATALOADER.S2_BANDS), topology[0], DoubleConv)
+        self.encoder_stream2 = Encoder(cfg)
+        self.decoder_stream2 = Decoder(cfg)
+        self.outc_stream2 = OutConv(topology[0], n_classes)
+
+        self.outc_fusion = OutConv(2 * topology[0], n_classes)
+
+
+    def difference_features(self, features_t1: torch.Tensor, features_t2: torch.Tensor):
+        features_diff = []
+        for f_t1, f_t2 in zip(features_t1, features_t2):
+            f_diff = torch.sub(f_t2, f_t1)
+            features_diff.append(f_diff)
+        return features_diff
+
+
+    def forward(self, x_t1: torch.Tensor, x_t2: torch.Tensor) -> tuple:
+        # stream1 (S1)
+        s1_t1, s1_t2 = x_t1[:, :len(self.cfg.DATALOADER.S1_BANDS), ], x_t2[:, :len(self.cfg.DATALOADER.S1_BANDS), ]
+
+        s1_t1 = self.inc_stream1(s1_t1)
+        s1_features_t1 = self.encoder_stream1(s1_t1)
+
+        s1_t2 = self.inc_stream1(s1_t2)
+        s1_features_t2 = self.encoder_stream1(s1_t2)
+
+        s1_features_diff = self.difference_features(s1_features_t1, s1_features_t2)
+        x_stream1 = self.decoder_stream1(s1_features_diff)
+        out_stream1 = self.outc_stream1(x_stream1)
+
+        # stream2 (S2)
+        s2_t1, s2_t2 = x_t1[:, len(self.cfg.DATALOADER.S1_BANDS):, ], x_t2[:, len(self.cfg.DATALOADER.S1_BANDS):, ]
+
+        s2_t1 = self.inc_stream2(s2_t1)
+        s2_features_t1 = self.encoder_stream2(s2_t1)
+
+        s2_t2 = self.inc_stream2(s2_t2)
+        s2_features_t2 = self.encoder_stream2(s2_t2)
+
+        s2_features_diff = self.difference_features(s2_features_t1, s2_features_t2)
+        x_stream2 = self.decoder_stream2(s2_features_diff)
+        out_stream2 = self.outc_stream2(x_stream2)
+
+        x_fusion = torch.concat((x_stream1, x_stream2), dim=1)
+        out_fusion = self.outc_fusion(x_fusion)
+        if self.training:
+            return out_fusion, out_stream1, out_stream2
+        else:
+            return out_fusion
 
 
 class Encoder(nn.Module):
