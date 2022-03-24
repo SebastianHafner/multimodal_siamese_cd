@@ -73,7 +73,7 @@ class UNet(nn.Module):
         features = self.encoder(x)
         x = self.decoder(features)
         out = self.outc(x)
-        return out, None, None
+        return out
 
 
 class DualStreamUNet(nn.Module):
@@ -148,7 +148,7 @@ class SiameseUNet(nn.Module):
         x2 = self.decoder(features_diff)
         out = self.outc(x2)
 
-        return out, None, None
+        return out
 
 
 class DualTaskSiameseUNet(nn.Module):
