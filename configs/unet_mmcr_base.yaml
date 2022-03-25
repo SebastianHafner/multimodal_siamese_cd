@@ -1,14 +1,10 @@
 _BASE_: "base.yaml"
 DEBUG: False
 
-TRAINER:
-  BATCH_SIZE: 8
-
 MODEL:
   TYPE: 'whatevernet2'
 
 DATALOADER:
-  NUM_WORKER: 4
   INPUT_MODE: 's1s2'
   INCLUDE_UNLABELED: True
   INCLUDE_UNLABELED_VALIDATION: False
