@@ -1,4 +1,4 @@
-_BASE_: "baseline_duastream.yaml"
+_BASE_: "baseline_dualstream.yaml"
 DEBUG: False
 
 AUGMENTATION:
