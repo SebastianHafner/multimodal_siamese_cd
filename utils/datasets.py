@@ -54,11 +54,19 @@ class AbstractMultimodalCDDataset(torch.utils.data.Dataset):
     def get_aoi_ids(self) -> list:
         return list(set([s['aoi_id'] for s in self.samples]))
 
-    def __len__(self):
-        return self.length
+    def get_geo(self, aoi_id: str) -> tuple:
+        timestamps = self.metadata[aoi_id]
+        timestamps = [(ts['year'], ts['month']) for ts in timestamps if ts['s1']]
+        year, month = timestamps[0]
+        file = self.root_path / aoi_id / 's1' / f's1_{aoi_id}_{year}_{month:02d}.tif'
+        _, transform, crs = geofiles.read_tif(file)
+        return transform, crs
 
-    def __str__(self):
-        return f'Dataset with {self.length} samples.'
+    def load_s2_rgb(self, aoi_id: str, year: int, month: int) -> np.ndarray:
+        file = self.root_path / aoi_id / 's2' / f's2_{aoi_id}_{year}_{month:02d}.tif'
+        img, _, _ = geofiles.read_tif(file)
+        img = np.clip(img[:, :, [2, 1, 0]] / 0.3, 0, 1)
+        return np.nan_to_num(img).astype(np.float32)
 
 
 # dataset for urban extraction with building footprints
