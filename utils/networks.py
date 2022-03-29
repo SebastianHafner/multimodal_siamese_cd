@@ -13,19 +13,17 @@ def create_network(cfg):
     if cfg.MODEL.TYPE == 'unet':
         model = UNet(cfg)
     elif cfg.MODEL.TYPE == 'dualstreamunet':
-        model =  DualStreamUNet(cfg)
+        model = DualStreamUNet(cfg)
     elif cfg.MODEL.TYPE == 'siameseunet':
         model = SiameseUNet(cfg)
     elif cfg.MODEL.TYPE == 'dtsiameseunet':
         model = DualTaskSiameseUNet(cfg)
-    elif cfg.MODEL.TYPE == 'whatevernet':
-        model = WhateverNet(cfg)
-    elif cfg.MODEL.TYPE == 'whatevernet2':
-        model = WhateverNet2(cfg)
-    elif cfg.MODEL.TYPE == 'whatevernet3':
-        model = WhateverNet3(cfg)
-    elif cfg.MODEL.TYPE == 'multimodalsiamese':
-        model = MultiModalSiamese(cfg)
+    elif cfg.MODEL.TYPE == 'dtlatefusionsiameseunet':
+        model = DualTaskLateFusionSiameseUnet(cfg)
+    elif cfg.MODEL.TYPE == 'multimodalsiameseunet':
+        model = MultiModalSiameseUnet(cfg)
+    elif cfg.MODEL.TYPE == 'dtmultimodalsiameseunet':
+        model = DualTaskMultiModalSiameseUnet(cfg)
     else:
         raise Exception(f'Unknown network ({cfg.MODEL.TYPE}).')
     return nn.DataParallel(model)
@@ -201,121 +199,9 @@ class DualTaskSiameseUNet(nn.Module):
         return out_change, out_sem_t1, out_sem_t2
 
 
-class WhateverNet(nn.Module):
+class DualTaskLateFusionSiameseUnet(nn.Module):
     def __init__(self, cfg):
-        super(WhateverNet, self).__init__()
-        self.cfg = cfg
-
-        n_classes = cfg.MODEL.OUT_CHANNELS
-        topology = cfg.MODEL.TOPOLOGY
-
-        # stream 1 (S1)
-        self.inc_stream1 = InConv(len(cfg.DATALOADER.S1_BANDS), topology[0], DoubleConv)
-        self.encoder_stream1 = Encoder(cfg)
-        self.decoder_stream1 = Decoder(cfg)
-        self.outc_stream1 = OutConv(topology[0], n_classes)
-
-        # stream 2 (S2)
-        self.inc_stream2 = InConv(len(cfg.DATALOADER.S2_BANDS), topology[0], DoubleConv)
-        self.encoder_stream2 = Encoder(cfg)
-        self.decoder_stream2 = Decoder(cfg)
-        self.outc_stream2 = OutConv(topology[0], n_classes)
-
-        self.outc_fusion = OutConv(2 * topology[0], n_classes)
-
-    def difference_features(self, features_t1: torch.Tensor, features_t2: torch.Tensor):
-        features_diff = []
-        for f_t1, f_t2 in zip(features_t1, features_t2):
-            f_diff = torch.sub(f_t2, f_t1)
-            features_diff.append(f_diff)
-        return features_diff
-
-
-    def forward(self, x_t1: torch.Tensor, x_t2: torch.Tensor) -> tuple:
-        # stream1 (S1)
-        s1_t1, s1_t2 = x_t1[:, :len(self.cfg.DATALOADER.S1_BANDS), ], x_t2[:, :len(self.cfg.DATALOADER.S1_BANDS), ]
-
-        s1_t1 = self.inc_stream1(s1_t1)
-        s1_features_t1 = self.encoder_stream1(s1_t1)
-
-        s1_t2 = self.inc_stream1(s1_t2)
-        s1_features_t2 = self.encoder_stream1(s1_t2)
-
-        s1_features_diff = self.difference_features(s1_features_t1, s1_features_t2)
-        x_stream1 = self.decoder_stream1(s1_features_diff)
-        out_stream1 = self.outc_stream1(x_stream1)
-
-        # stream2 (S2)
-        s2_t1, s2_t2 = x_t1[:, len(self.cfg.DATALOADER.S1_BANDS):, ], x_t2[:, len(self.cfg.DATALOADER.S1_BANDS):, ]
-
-        s2_t1 = self.inc_stream2(s2_t1)
-        s2_features_t1 = self.encoder_stream2(s2_t1)
-
-        s2_t2 = self.inc_stream2(s2_t2)
-        s2_features_t2 = self.encoder_stream2(s2_t2)
-
-        s2_features_diff = self.difference_features(s2_features_t1, s2_features_t2)
-        x_stream2 = self.decoder_stream2(s2_features_diff)
-        out_stream2 = self.outc_stream2(x_stream2)
-
-        x_fusion = torch.concat((x_stream1, x_stream2), dim=1)
-        out_fusion = self.outc_fusion(x_fusion)
-        if self.training:
-            return out_fusion, out_stream1, out_stream2
-        else:
-            return out_fusion
-
-
-class WhateverNet2(nn.Module):
-    def __init__(self, cfg):
-        super(WhateverNet2, self).__init__()
-        self.cfg = cfg
-
-        n_classes = cfg.MODEL.OUT_CHANNELS
-        topology = cfg.MODEL.TOPOLOGY
-
-        # stream 1 (S1)
-        self.inc_stream1 = InConv(2 * len(cfg.DATALOADER.S1_BANDS), topology[0], DoubleConv)
-        self.encoder_stream1 = Encoder(cfg)
-        self.decoder_stream1 = Decoder(cfg)
-        self.outc_stream1 = OutConv(topology[0], n_classes)
-
-        # stream 2 (S2)
-        self.inc_stream2 = InConv(2 * len(cfg.DATALOADER.S2_BANDS), topology[0], DoubleConv)
-        self.encoder_stream2 = Encoder(cfg)
-        self.decoder_stream2 = Decoder(cfg)
-        self.outc_stream2 = OutConv(topology[0], n_classes)
-
-        self.outc_fusion = OutConv(2 * topology[0], n_classes)
-
-    def forward(self, x_t1: torch.Tensor, x_t2: torch.Tensor) -> tuple:
-        # stream1 (S1)
-        s1_t1, s1_t2 = x_t1[:, :len(self.cfg.DATALOADER.S1_BANDS), ], x_t2[:, :len(self.cfg.DATALOADER.S1_BANDS), ]
-        x_stream1 = torch.concat((s1_t1, s1_t2), dim=1)
-        x_stream1 = self.inc_stream1(x_stream1)
-        features_stream1 = self.encoder_stream1(x_stream1)
-        x_stream1 = self.decoder_stream1(features_stream1)
-        out_stream1 = self.outc_stream1(x_stream1)
-
-        # stream2 (S2)
-        s2_t1, s2_t2 = x_t1[:, len(self.cfg.DATALOADER.S1_BANDS):, ], x_t2[:, len(self.cfg.DATALOADER.S1_BANDS):, ]
-        x_stream2 = torch.concat((s2_t1, s2_t2), dim=1)
-        x_stream2 = self.inc_stream2(x_stream2)
-        features_stream2 = self.encoder_stream2(x_stream2)
-        x_stream2 = self.decoder_stream2(features_stream2)
-        out_stream2 = self.outc_stream2(x_stream2)
-
-        x_fusion = torch.concat((x_stream1, x_stream2), dim=1)
-        out_fusion = self.outc_fusion(x_fusion)
-        if self.training:
-            return out_fusion, out_stream1, out_stream2
-        else:
-            return out_fusion
-
-
-class WhateverNet3(nn.Module):
-    def __init__(self, cfg):
-        super(WhateverNet3, self).__init__()
+        super(DualTaskLateFusionSiameseUnet, self).__init__()
         self.cfg = cfg
 
         n_classes = cfg.MODEL.OUT_CHANNELS
@@ -395,13 +281,12 @@ class WhateverNet3(nn.Module):
         x2_fusion_change = torch.concat((x2_sar_change, x2_optical_change), dim=1)
         out_fusion_change = self.outc_fusion_change(x2_fusion_change)
 
-        return out_fusion_change, out_sar_change, out_optical_change, out_sar_sem_t1, out_sar_sem_t2,\
-            out_optical_sem_t1, out_optical_sem_t2
+        return out_fusion_change, out_sar_sem_t1, out_sar_sem_t2, out_optical_sem_t1, out_optical_sem_t2
 
 
-class MultiModalSiamese(nn.Module):
+class MultiModalSiameseUnet(nn.Module):
     def __init__(self, cfg):
-        super(MultiModalSiamese, self).__init__()
+        super(MultiModalSiameseUnet, self).__init__()
         self.cfg = cfg
 
         n_classes = cfg.MODEL.OUT_CHANNELS
@@ -455,6 +340,82 @@ class MultiModalSiamese(nn.Module):
         out_fusion = self.outc_fusion(x2_fusion)
 
         return out_fusion
+
+
+class DualTaskMultiModalSiameseUnet(nn.Module):
+    def __init__(self, cfg):
+        super(DualTaskMultiModalSiameseUnet, self).__init__()
+        self.cfg = cfg
+
+        n_classes = cfg.MODEL.OUT_CHANNELS
+        topology = list(cfg.MODEL.TOPOLOGY)
+
+        # sar encoder
+        self.inc_sar = InConv(len(cfg.DATALOADER.S1_BANDS), topology[0], DoubleConv)
+        self.encoder_sar = Encoder(cfg)
+        self.decoder_sar_sem = Decoder(cfg)
+        self.outc_sar_sem = OutConv(topology[0], n_classes)
+
+        # optical encoder
+        self.inc_optical = InConv(len(cfg.DATALOADER.S2_BANDS), topology[0], DoubleConv)
+        self.encoder_optical = Encoder(cfg)
+        self.decoder_optical_sem = Decoder(cfg)
+        self.outc_optical_sem = OutConv(topology[0], n_classes)
+
+        # fusion decoder
+        decoder_change_topology = list(2 * np.array(topology))
+        self.decoder_change = Decoder(cfg, decoder_change_topology)
+        self.outc_change = OutConv(2 * topology[0], n_classes)
+
+    @staticmethod
+    def difference_features(features_t1: torch.Tensor, features_t2: torch.Tensor):
+        features_diff = []
+        for f_t1, f_t2 in zip(features_t1, features_t2):
+            f_diff = torch.sub(f_t2, f_t1)
+            features_diff.append(f_diff)
+        return features_diff
+
+    def forward(self, x_t1: torch.Tensor, x_t2: torch.Tensor) -> tuple:
+        # sar encoding
+        s1_t1, s1_t2 = x_t1[:, :len(self.cfg.DATALOADER.S1_BANDS), ], x_t2[:, :len(self.cfg.DATALOADER.S1_BANDS), ]
+        x1_sar_t1 = self.inc_sar(s1_t1)
+        features_sar_t1 = self.encoder_sar(x1_sar_t1)
+        x1_sar_t2 = self.inc_sar(s1_t2)
+        features_sar_t2 = self.encoder_sar(x1_sar_t2)
+        features_sar_diff = self.difference_features(features_sar_t1, features_sar_t2)
+
+        # optical encoding
+        s2_t1, s2_t2 = x_t1[:, len(self.cfg.DATALOADER.S1_BANDS):, ], x_t2[:, len(self.cfg.DATALOADER.S1_BANDS):, ]
+        x1_optical_t1 = self.inc_optical(s2_t1)
+        features_optical_t1 = self.encoder_optical(x1_optical_t1)
+        x1_optical_t2 = self.inc_optical(s2_t2)
+        features_optical_t2 = self.encoder_optical(x1_optical_t2)
+        features_optical_diff = self.difference_features(features_optical_t1, features_optical_t2)
+
+        # features concat and change decoding
+        features_fusion_diff = []
+        for f_sar, f_optical in zip(features_sar_diff, features_optical_diff):
+            f_fusion = torch.concat((f_sar, f_optical), dim=1)
+            features_fusion_diff.append(f_fusion)
+
+        x2_fusion_change = self.decoder_fusion(features_fusion_diff)
+        out_change = self.outc_fusion(x2_fusion_change)
+
+        # sar semantics decoding
+        x2_sar_sem_t1 = self.decoder_sar_sem(features_sar_t1)
+        out_sar_sem_t1 = self.outc_sar_sem(x2_sar_sem_t1)
+
+        x2_sar_sem_t2 = self.decoder_sar_sem(features_sar_t2)
+        out_sar_sem_t2 = self.outc_sar_sem(x2_sar_sem_t2)
+
+        # optical semantics decoding
+        x2_optical_sem_t1 = self.decoder_optical_sem(features_optical_t1)
+        out_optical_sem_t1 = self.outc_optical_sem(x2_optical_sem_t1)
+
+        x2_optical_sem_t2 = self.decoder_optical_sem(features_optical_t2)
+        out_optical_sem_t2 = self.outc_optical_sem(x2_optical_sem_t2)
+
+        return out_change, out_sar_sem_t1, out_sar_sem_t2, out_optical_sem_t1, out_optical_sem_t2
 
 
 class Encoder(nn.Module):

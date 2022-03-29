@@ -71,9 +71,9 @@ def run_training(cfg):
             x_t2 = batch['x_t2'].to(device)
 
             logits = net(x_t1, x_t2)
-            logits_fusion_change, logits_stream1_change, logits_stream2_change = logits[:3]
-            logits_stream1_sem_t1, logits_stream1_sem_t2 = logits[3:5]
-            logits_stream2_sem_t1, logits_stream2_sem_t2 = logits[5:]
+            logits_change = logits[0]
+            logits_stream1_sem_t1, logits_stream1_sem_t2 = logits[1:3]
+            logits_stream2_sem_t1, logits_stream2_sem_t2 = logits[3:]
 
             sup_loss, cons_loss = None, None
 
@@ -83,7 +83,7 @@ def run_training(cfg):
 
                 # change detection
                 gt_change = batch['y_change'].to(device)
-                change_loss = sup_criterion(logits_fusion_change[is_labeled,], gt_change[is_labeled,])
+                change_loss = sup_criterion(logits_change[is_labeled,], gt_change[is_labeled,])
 
                 # semantics
                 gt_sem_t1 = batch['y_sem_t1'].to(device)

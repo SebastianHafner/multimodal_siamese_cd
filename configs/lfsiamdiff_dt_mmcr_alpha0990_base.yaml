@@ -1,0 +1,5 @@
+_BASE_: "lfsiamdiff_dt_mmcr_base.yaml"
+DEBUG: False
+
+CONSISTENCY_TRAINER:
+  LOSS_FACTOR: 0.99
