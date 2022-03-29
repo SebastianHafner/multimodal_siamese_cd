@@ -1,5 +1,0 @@
-_BASE_: "baseline_dualstream.yaml"
-DEBUG: False
-
-AUGMENTATION:
-  GAMMA_CORRECTION: True

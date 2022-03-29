@@ -1,6 +1,0 @@
-_BASE_: "siamesedt_mmcr_base.yaml"
-DEBUG: False
-
-CONSISTENCY_TRAINER:
-  LOSS_TYPE: 'L2'
-  LOSS_FACTOR: 0.99

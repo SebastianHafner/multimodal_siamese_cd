@@ -34,7 +34,7 @@ def run_training(cfg):
     sem_criterion = loss_functions.get_criterion(cfg.MODEL.LOSS_TYPE)
 
     # reset the generators
-    dataset = datasets.SpaceNet7CDDataset(cfg=cfg, run_type='training')
+    dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='training')
     print(dataset)
 
     dataloader_kwargs = {

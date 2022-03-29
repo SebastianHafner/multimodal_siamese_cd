@@ -1,8 +1,0 @@
-_BASE_: "base.yaml"
-DEBUG: False
-
-MODEL:
-  TYPE: 'dualstreamunet'
-
-DATALOADER:
-  INPUT_MODE: 's1s2'
