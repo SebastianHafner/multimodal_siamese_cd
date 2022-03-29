@@ -1,4 +1,4 @@
-_BASE_: "mmsiamdiff_dt_mmcr_base.yaml"
+_BASE_: "lfsiamdiff_dt_mmcr_s1s2_base.yaml"
 DEBUG: False
 
 CONSISTENCY_TRAINER:
