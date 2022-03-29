@@ -398,8 +398,8 @@ class DualTaskMultiModalSiameseUnet(nn.Module):
             f_fusion = torch.concat((f_sar, f_optical), dim=1)
             features_fusion_diff.append(f_fusion)
 
-        x2_fusion_change = self.decoder_fusion(features_fusion_diff)
-        out_change = self.outc_fusion(x2_fusion_change)
+        x2_fusion_change = self.decoder_change(features_fusion_diff)
+        out_change = self.outc_change(x2_fusion_change)
 
         # sar semantics decoding
         x2_sar_sem_t1 = self.decoder_sar_sem(features_sar_t1)
