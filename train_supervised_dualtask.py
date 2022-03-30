@@ -10,7 +10,7 @@ from tabulate import tabulate
 import wandb
 import numpy as np
 
-from utils import networks, datasets, loss_functions, evaluation, experiment_manager
+from utils import networks, datasets, loss_functions, evaluation, experiment_manager, parsers
 
 
 def run_training(cfg):
@@ -30,8 +30,7 @@ def run_training(cfg):
     net.to(device)
     optimizer = optim.AdamW(net.parameters(), lr=cfg.TRAINER.LR, weight_decay=0.01)
 
-    change_criterion = loss_functions.get_criterion(cfg.MODEL.LOSS_TYPE)
-    sem_criterion = loss_functions.get_criterion(cfg.MODEL.LOSS_TYPE)
+    criterion = loss_functions.get_criterion(cfg.MODEL.LOSS_TYPE)
 
     # reset the generators
     dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='training')
@@ -72,17 +71,17 @@ def run_training(cfg):
 
             # change detection
             gt_change = batch['y_change'].to(device)
-            change_loss = change_criterion(logits_change, gt_change)
+            change_loss = criterion(logits_change, gt_change)
 
             # semantic segmentation
             gt_sem_t1 = batch['y_sem_t1'].to(device)
             gt_sem_t2 = batch['y_sem_t2'].to(device)
 
-            sem_t1_loss = sem_criterion(logits_sem_t1, gt_sem_t1)
-            sem_t2_loss = sem_criterion(logits_sem_t2, gt_sem_t2)
+            sem_t1_loss = criterion(logits_sem_t1, gt_sem_t1)
+            sem_t2_loss = criterion(logits_sem_t2, gt_sem_t2)
             sem_loss = (sem_t1_loss + sem_t2_loss) / 2
 
-            loss = (change_loss + sem_loss) / 2
+            loss = change_loss + sem_loss
 
             loss.backward()
             optimizer.step()
@@ -98,8 +97,8 @@ def run_training(cfg):
                 print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
 
                 # evaluation on sample of training and validation set
-                evaluation.model_evaluation(net, cfg, device, 'training', epoch_float, global_step, enable_sem=True)
-                evaluation.model_evaluation(net, cfg, device, 'validation', epoch_float, global_step, enable_sem=True)
+                evaluation.model_evaluation_dt(net, cfg, device, 'training', epoch_float, global_step)
+                evaluation.model_evaluation_dt(net, cfg, device, 'validation', epoch_float, global_step)
 
                 # logging
                 time = timeit.default_timer() - start
@@ -119,9 +118,9 @@ def run_training(cfg):
         assert (epoch == epoch_float)
         print(f'epoch float {epoch_float} (step {global_step}) - epoch {epoch}')
         # evaluation at the end of an epoch
-        evaluation.model_evaluation(net, cfg, device, 'training', epoch_float, global_step, enable_sem=True)
-        evaluation.model_evaluation(net, cfg, device, 'validation', epoch_float, global_step, enable_sem=True)
-        evaluation.model_evaluation(net, cfg, device, 'test', epoch_float, global_step, enable_sem=True)
+        evaluation.model_evaluation_dt(net, cfg, device, 'training', epoch_float, global_step)
+        evaluation.model_evaluation_dt(net, cfg, device, 'validation', epoch_float, global_step)
+        evaluation.model_evaluation_dt(net, cfg, device, 'test', epoch_float, global_step)
 
         if epoch in save_checkpoints and not cfg.DEBUG:
             print(f'saving network', flush=True)
@@ -129,7 +128,7 @@ def run_training(cfg):
 
 
 if __name__ == '__main__':
-    args = experiment_manager.default_argument_parser().parse_known_args()[0]
+    args = parsers.training_argument_parser().parse_known_args()[0]
     cfg = experiment_manager.setup_cfg(args)
 
     # make training deterministic
