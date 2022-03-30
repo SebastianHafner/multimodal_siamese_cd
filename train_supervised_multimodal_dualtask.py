@@ -30,8 +30,7 @@ def run_training(cfg):
     net.to(device)
     optimizer = optim.AdamW(net.parameters(), lr=cfg.TRAINER.LR, weight_decay=0.01)
 
-    sup_criterion = loss_functions.get_criterion(cfg.MODEL.LOSS_TYPE)
-    cons_criterion = loss_functions.get_criterion(cfg.CONSISTENCY_TRAINER.LOSS_TYPE)
+    criterion = loss_functions.get_criterion(cfg.MODEL.LOSS_TYPE)
 
     # reset the generators
     dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='training')
@@ -58,9 +57,7 @@ def run_training(cfg):
         print(f'Starting epoch {epoch}/{epochs}.')
 
         start = timeit.default_timer()
-        change_loss_set, sem_loss_set, sup_loss_set, cons_loss_set, loss_set = [], [], [], [], []
-
-        n_labeled, n_notlabeled = 0, 0
+        change_loss_set, sem_loss_set, loss_set = [], [], []
 
         for i, batch in enumerate(dataloader):
 
@@ -75,65 +72,25 @@ def run_training(cfg):
             logits_stream1_sem_t1, logits_stream1_sem_t2 = logits[1:3]
             logits_stream2_sem_t1, logits_stream2_sem_t2 = logits[3:]
 
-            sup_loss, cons_loss = None, None
+            # change detection
+            gt_change = batch['y_change'].to(device)
+            change_loss = criterion(logits_change, gt_change)
 
-            is_labeled = batch['is_labeled']
-            n_labeled += torch.sum(is_labeled).item()
-            if is_labeled.any():
+            # semantics
+            gt_sem_t1 = batch['y_sem_t1'].to(device)
+            sem_stream1_t1_loss = criterion(logits_stream1_sem_t1, gt_sem_t1)
+            sem_stream2_t1_loss = criterion(logits_stream2_sem_t1, gt_sem_t1)
 
-                # change detection
-                gt_change = batch['y_change'].to(device)
-                change_loss = sup_criterion(logits_change[is_labeled,], gt_change[is_labeled,])
+            gt_sem_t2 = batch['y_sem_t2'].to(device)
+            sem_stream1_t2_loss = criterion(logits_stream1_sem_t2, gt_sem_t2)
+            sem_stream2_t2_loss = criterion(logits_stream2_sem_t2, gt_sem_t2)
 
-                # semantics
-                gt_sem_t1 = batch['y_sem_t1'].to(device)
-                sem_stream1_t1_loss = sup_criterion(logits_stream1_sem_t1[is_labeled,], gt_sem_t1[is_labeled,])
-                sem_stream2_t1_loss = sup_criterion(logits_stream2_sem_t1[is_labeled,], gt_sem_t1[is_labeled,])
+            sem_loss = (sem_stream1_t1_loss + sem_stream1_t2_loss + sem_stream2_t1_loss + sem_stream2_t2_loss) / 4
 
-                gt_sem_t2 = batch['y_sem_t2'].to(device)
-                sem_stream1_t2_loss = sup_criterion(logits_stream1_sem_t2[is_labeled,], gt_sem_t2[is_labeled,])
-                sem_stream2_t2_loss = sup_criterion(logits_stream2_sem_t2[is_labeled,], gt_sem_t2[is_labeled,])
+            loss = change_loss + sem_loss
 
-                sem_loss = (sem_stream1_t1_loss + sem_stream1_t2_loss + sem_stream2_t1_loss + sem_stream2_t2_loss) / 4
-
-                sup_loss = change_loss + sem_loss
-                sup_loss = cfg.CONSISTENCY_TRAINER.LOSS_FACTOR * sup_loss
-
-                change_loss_set.append(change_loss.item())
-                sem_loss_set.append(sem_loss.item())
-                sup_loss_set.append(sup_loss.item())
-
-            if not is_labeled.all():
-                is_not_labeled = torch.logical_not(is_labeled)
-                n_notlabeled += torch.sum(is_not_labeled).item()
-
-                y_pred_stream1_sem_t1 = torch.sigmoid(logits_stream1_sem_t1)
-                y_pred_stream1_sem_t2 = torch.sigmoid(logits_stream1_sem_t2)
-                y_pred_stream2_sem_t1 = torch.sigmoid(logits_stream2_sem_t1)
-                y_pred_stream2_sem_t2 = torch.sigmoid(logits_stream2_sem_t2)
-
-                if cfg.CONSISTENCY_TRAINER.LOSS_TYPE == 'L2':
-                    cons_loss_t1 = cons_criterion(y_pred_stream1_sem_t1[is_not_labeled,],
-                                                  y_pred_stream2_sem_t1[is_not_labeled,])
-                    cons_loss_t2 = cons_criterion(y_pred_stream1_sem_t2[is_not_labeled,],
-                                                  y_pred_stream2_sem_t2[is_not_labeled,])
-                else:
-                    cons_loss_t1 = cons_criterion(logits_stream1_sem_t1[is_not_labeled,],
-                                                  y_pred_stream2_sem_t1[is_not_labeled,])
-                    cons_loss_t2 = cons_criterion(logits_stream1_sem_t2[is_not_labeled,],
-                                                  y_pred_stream2_sem_t2[is_not_labeled,])
-
-                cons_loss = (cons_loss_t1 + cons_loss_t2) / 2
-                cons_loss = (1 - cfg.CONSISTENCY_TRAINER.LOSS_FACTOR) * cons_loss
-                cons_loss_set.append(cons_loss.item())
-
-            if sup_loss is None and cons_loss is not None:
-                loss = cons_loss
-            elif sup_loss is not None and cons_loss is not None:
-                loss = sup_loss + cons_loss
-            else:
-                loss = sup_loss
-
+            change_loss_set.append(change_loss.item())
+            sem_loss_set.append(sem_loss.item())
             loss_set.append(loss.item())
 
             loss.backward()
@@ -157,10 +114,8 @@ def run_training(cfg):
                 wandb.log({
                     'change_loss': np.mean(change_loss_set) if len(change_loss_set) > 0 else 0,
                     'sem_loss': np.mean(sem_loss_set) if len(sem_loss_set) > 0 else 0,
-                    'sup_loss': np.mean(sup_loss_set) if len(sup_loss_set) > 0 else 0,
-                    'cons_loss': np.mean(cons_loss_set) if len(cons_loss_set) > 0 else 0,
                     'loss': np.mean(loss_set),
-                    'labeled_percentage': n_labeled / (n_labeled + n_notlabeled) * 100,
+                    'labeled_percentage': 100,
                     'time': time,
                     'step': global_step,
                     'epoch': epoch_float,

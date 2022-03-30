@@ -4,7 +4,7 @@ import wandb
 from utils import datasets, metrics
 
 
-def model_evaluation_ssl_dt(net, cfg, device, run_type: str, epoch: float, step: int):
+def model_evaluation_mm_dt(net, cfg, device, run_type: str, epoch: float, step: int):
 
     net.to(device)
     net.eval()
