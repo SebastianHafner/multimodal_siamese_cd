@@ -94,7 +94,7 @@ def run_training(cfg):
                 sem_stream1_t2_loss = sup_criterion(logits_stream1_sem_t2[is_labeled,], gt_sem_t2[is_labeled,])
                 sem_stream2_t2_loss = sup_criterion(logits_stream2_sem_t2[is_labeled,], gt_sem_t2[is_labeled,])
 
-                sem_loss = (sem_stream1_t1_loss + sem_stream1_t2_loss + sem_stream2_t1_loss + sem_stream2_t2_loss) / 4
+                sem_loss = (sem_stream1_t1_loss + sem_stream1_t2_loss + sem_stream2_t1_loss + sem_stream2_t2_loss)
 
                 sup_loss = change_loss + sem_loss
                 sup_loss = cfg.CONSISTENCY_TRAINER.LOSS_FACTOR * sup_loss
