@@ -20,7 +20,7 @@ def upload_study_area(spacenet7_path: str):
     for aoi_id in train_aoi_ids + test_aoi_ids:
         centroid = get_centroid(aoi_id, spacenet7_path, 'train' if aoi_id in train_aoi_ids else 'test')
         if aoi_id in cfg.DATASET.TRAINING_IDS:
-            split = 'training'
+            split = 'training_labeled'
             labeled = 1
         elif aoi_id in cfg.DATASET.VALIDATION_IDS:
             split = 'validation'
@@ -29,16 +29,16 @@ def upload_study_area(spacenet7_path: str):
             split = 'test'
             labeled = 1
         else:
-            split = 'training'
+            split = 'training_unlabeled'
             labeled = 0
         features.append(ee.Feature(centroid, {'aoi_id': aoi_id, 'split': split, 'labeled': labeled}))
 
     fc = ee.FeatureCollection(features)
     dl_task = ee.batch.Export.table.toDrive(
         collection=fc,
-        description='siameseSSLstudyArea',
-        folder='siamese_ssl',
-        fileNamePrefix='siamese_ssl_aoi_ids',
+        description='MMCRstudyArea',
+        folder='multimodal_siamese_cd',
+        fileNamePrefix='mmcr_aoi_ids',
         fileFormat='GeoJSON'
     )
     dl_task.start()
