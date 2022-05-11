@@ -28,18 +28,15 @@ def model_evaluation_mm_dt(net, cfg, device, run_type: str, epoch: float, step: 
             measurer_change.add_sample(gt_change.detach(), y_pred_change.detach())
 
             # semantics
-            logits_stream1_sem_t1, logits_stream1_sem_t2, logits_stream2_sem_t1, logits_stream2_sem_t2 = logits[1:]
+            logits_fusion_sem_t1, logits_fusion_sem_t2 = logits[5:]
             # t1
             gt_sem_t1 = item['y_sem_t1'].to(device)
-            y_pred_stream1_sem_t1 = torch.sigmoid(logits_stream1_sem_t1)
-            measurer_sem.add_sample(gt_sem_t1.detach(), y_pred_stream1_sem_t1)
-            y_pred_stream2_sem_t1 = torch.sigmoid(logits_stream2_sem_t1)
-            measurer_sem.add_sample(gt_sem_t1.detach(), y_pred_stream2_sem_t1)
+            y_pred_fusion_sem_t1 = torch.sigmoid(logits_fusion_sem_t1)
+            measurer_sem.add_sample(gt_sem_t1.detach(), y_pred_fusion_sem_t1)
+            # t2
             gt_sem_t2 = item['y_sem_t2'].to(device)
-            y_pred_stream1_sem_t2 = torch.sigmoid(logits_stream1_sem_t2)
-            measurer_sem.add_sample(gt_sem_t2, y_pred_stream1_sem_t2)
-            y_pred_stream2_sem_t2 = torch.sigmoid(logits_stream2_sem_t2)
-            measurer_sem.add_sample(gt_sem_t2, y_pred_stream2_sem_t2)
+            y_pred_fusion_sem_t2 = torch.sigmoid(logits_fusion_sem_t2)
+            measurer_sem.add_sample(gt_sem_t2, y_pred_fusion_sem_t2)
 
     # change
     f1s_change = measurer_change.compute_f1()

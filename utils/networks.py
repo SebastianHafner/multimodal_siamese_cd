@@ -281,7 +281,15 @@ class DualTaskLateFusionSiameseUnet(nn.Module):
         x2_fusion_change = torch.concat((x2_sar_change, x2_optical_change), dim=1)
         out_fusion_change = self.outc_fusion_change(x2_fusion_change)
 
-        return out_fusion_change, out_sar_sem_t1, out_sar_sem_t2, out_optical_sem_t1, out_optical_sem_t2
+        # fusion semantic decoding
+        x2_fusion_sem_t1 = torch.concat((x2_sar_sem_t1, x2_optical_sem_t1), dim=1)
+        out_fusion_sem_t1 = self.outc_fusion_sem(x2_fusion_sem_t1)
+
+        x2_fusion_sem_t2 = torch.concat((x2_sar_sem_t2, x2_optical_sem_t2), dim=1)
+        out_fusion_sem_t2 = self.outc_fusion_sem(x2_fusion_sem_t2)
+
+        return out_fusion_change, out_sar_sem_t1, out_sar_sem_t2, out_optical_sem_t1, out_optical_sem_t2,\
+            out_fusion_sem_t1, out_fusion_sem_t2
 
 
 class MultiModalSiameseUnet(nn.Module):
@@ -367,6 +375,8 @@ class DualTaskMultiModalSiameseUnet(nn.Module):
         self.decoder_change = Decoder(cfg, decoder_change_topology)
         self.outc_change = OutConv(2 * topology[0], n_classes)
 
+        self.outc_fusion_sem = OutConv(2 * topology[0], n_classes)
+
     @staticmethod
     def difference_features(features_t1: torch.Tensor, features_t2: torch.Tensor):
         features_diff = []
@@ -401,21 +411,29 @@ class DualTaskMultiModalSiameseUnet(nn.Module):
         x2_fusion_change = self.decoder_change(features_fusion_diff)
         out_change = self.outc_change(x2_fusion_change)
 
-        # sar semantics decoding
+        # sar semantic decoding
         x2_sar_sem_t1 = self.decoder_sar_sem(features_sar_t1)
         out_sar_sem_t1 = self.outc_sar_sem(x2_sar_sem_t1)
 
         x2_sar_sem_t2 = self.decoder_sar_sem(features_sar_t2)
         out_sar_sem_t2 = self.outc_sar_sem(x2_sar_sem_t2)
 
-        # optical semantics decoding
+        # optical semantic decoding
         x2_optical_sem_t1 = self.decoder_optical_sem(features_optical_t1)
         out_optical_sem_t1 = self.outc_optical_sem(x2_optical_sem_t1)
 
         x2_optical_sem_t2 = self.decoder_optical_sem(features_optical_t2)
         out_optical_sem_t2 = self.outc_optical_sem(x2_optical_sem_t2)
 
-        return out_change, out_sar_sem_t1, out_sar_sem_t2, out_optical_sem_t1, out_optical_sem_t2
+        # fusion semantic decoding
+        x2_fusion_sem_t1 = torch.concat((x2_sar_sem_t1, x2_optical_sem_t1), dim=1)
+        out_fusion_sem_t1 = self.outc_fusion_sem(x2_fusion_sem_t1)
+
+        x2_fusion_sem_t2 = torch.concat((x2_sar_sem_t2, x2_optical_sem_t2), dim=1)
+        out_fusion_sem_t2 = self.outc_fusion_sem(x2_fusion_sem_t2)
+
+        return out_change, out_sar_sem_t1, out_sar_sem_t2, out_optical_sem_t1, out_optical_sem_t2, out_fusion_sem_t1,\
+            out_fusion_sem_t2
 
 
 class Encoder(nn.Module):
