@@ -70,7 +70,8 @@ def run_training(cfg):
             logits = net(x_t1, x_t2)
             logits_change = logits[0]
             logits_stream1_sem_t1, logits_stream1_sem_t2 = logits[1:3]
-            logits_stream2_sem_t1, logits_stream2_sem_t2 = logits[3:]
+            logits_stream2_sem_t1, logits_stream2_sem_t2 = logits[3:5]
+            logits_fusion_sem_t1, logits_fusion_sem_t2 = logits[5:]
 
             # change detection
             gt_change = batch['y_change'].to(device)
@@ -80,12 +81,15 @@ def run_training(cfg):
             gt_sem_t1 = batch['y_sem_t1'].to(device)
             sem_stream1_t1_loss = criterion(logits_stream1_sem_t1, gt_sem_t1)
             sem_stream2_t1_loss = criterion(logits_stream2_sem_t1, gt_sem_t1)
+            sem_fusion_t1_loss = criterion(logits_fusion_sem_t1, gt_sem_t1)
 
             gt_sem_t2 = batch['y_sem_t2'].to(device)
             sem_stream1_t2_loss = criterion(logits_stream1_sem_t2, gt_sem_t2)
             sem_stream2_t2_loss = criterion(logits_stream2_sem_t2, gt_sem_t2)
+            sem_fusion_t2_loss = criterion(logits_fusion_sem_t2, gt_sem_t2)
 
-            sem_loss = (sem_stream1_t1_loss + sem_stream1_t2_loss + sem_stream2_t1_loss + sem_stream2_t2_loss) / 4
+            sem_loss = (sem_stream1_t1_loss + sem_stream1_t2_loss + sem_stream2_t1_loss + sem_stream2_t2_loss +
+                        sem_fusion_t1_loss + sem_fusion_t2_loss)
 
             loss = change_loss + sem_loss
 
