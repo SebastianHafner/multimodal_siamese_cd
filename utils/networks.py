@@ -372,8 +372,8 @@ class DualTaskMultiModalSiameseUnet(nn.Module):
 
         # fusion decoder
         decoder_change_topology = list(2 * np.array(topology))
-        self.decoder_change = Decoder(cfg, decoder_change_topology)
-        self.outc_change = OutConv(2 * topology[0], n_classes)
+        self.decoder_fusion_change = Decoder(cfg, decoder_change_topology)
+        self.outc_fusion_change = OutConv(2 * topology[0], n_classes)
 
         self.outc_fusion_sem = OutConv(2 * topology[0], n_classes)
 
@@ -408,8 +408,8 @@ class DualTaskMultiModalSiameseUnet(nn.Module):
             f_fusion = torch.concat((f_sar, f_optical), dim=1)
             features_fusion_diff.append(f_fusion)
 
-        x2_fusion_change = self.decoder_change(features_fusion_diff)
-        out_change = self.outc_change(x2_fusion_change)
+        x2_fusion_change = self.decoder_fusion_change(features_fusion_diff)
+        out_fusion_change = self.outc_fusion_change(x2_fusion_change)
 
         # sar semantic decoding
         x2_sar_sem_t1 = self.decoder_sar_sem(features_sar_t1)
@@ -432,8 +432,8 @@ class DualTaskMultiModalSiameseUnet(nn.Module):
         x2_fusion_sem_t2 = torch.concat((x2_sar_sem_t2, x2_optical_sem_t2), dim=1)
         out_fusion_sem_t2 = self.outc_fusion_sem(x2_fusion_sem_t2)
 
-        return out_change, out_sar_sem_t1, out_sar_sem_t2, out_optical_sem_t1, out_optical_sem_t2, out_fusion_sem_t1,\
-            out_fusion_sem_t2
+        return out_fusion_change, out_sar_sem_t1, out_sar_sem_t2, out_optical_sem_t1, out_optical_sem_t2,\
+            out_fusion_sem_t1, out_fusion_sem_t2
 
 
 class Encoder(nn.Module):
