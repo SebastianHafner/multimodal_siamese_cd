@@ -79,7 +79,7 @@ def run_training(cfg):
 
             sem_t1_loss = criterion(logits_sem_t1, gt_sem_t1)
             sem_t2_loss = criterion(logits_sem_t2, gt_sem_t2)
-            sem_loss = (sem_t1_loss + sem_t2_loss) / 2
+            sem_loss = (sem_t1_loss + sem_t2_loss)
 
             loss = change_loss + sem_loss
 
