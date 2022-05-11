@@ -58,7 +58,7 @@ def new_config():
 
 def setup_cfg(args):
     cfg = new_config()
-    cfg.merge_from_file(f'configs/{args.config_file}.yaml')
+    cfg.merge_from_file(f'configs/{args.config_file}.yaml')  # C:/Users/shafner/repos/multimodal_siamese_cd/
     cfg.merge_from_list(args.opts)
     cfg.NAME = args.config_file
     cfg.PATHS.ROOT = str(Path.cwd())
