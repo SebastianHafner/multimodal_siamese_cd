@@ -159,7 +159,7 @@ if __name__ == '__main__':
     wandb.init(
         name=cfg.NAME,
         config=cfg,
-        entity='multimodal_siamese_cd',
+        entity='population_mapping',
         project=args.project,
         tags=['ssl', 'cd', 'siamese', 'spacenet7', ],
         mode='online' if not cfg.DEBUG else 'disabled',
