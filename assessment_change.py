@@ -55,4 +55,4 @@ def quantitative_assessment_change(cfg: experiment_manager.CfgNode, run_type: st
 if __name__ == '__main__':
     args = parsers.deployment_argument_parser().parse_known_args()[0]
     cfg = experiment_manager.setup_cfg(args)
-    quantitative_assessment_change(cfg, run_type='validation')
+    quantitative_assessment_change(cfg, run_type='test')
