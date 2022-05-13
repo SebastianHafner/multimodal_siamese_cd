@@ -1,0 +1,5 @@
+_BASE_: "siamdiff_dt_s2_base.yaml"
+DEBUG: False
+
+AUGMENTATION:
+  GAMMA_CORRECTION: True
