@@ -61,6 +61,7 @@ def qualitative_comparison(cfg: experiment_manager.CfgNode, run_type: str = 'tes
             out_file = plot_folder / f'qualitative_comparison_{aoi_id}.png'
             plt.savefig(out_file, dpi=300, bbox_inches='tight')
             plt.close(fig)
+            
 
 
 if __name__ == '__main__':
