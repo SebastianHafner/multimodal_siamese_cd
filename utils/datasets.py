@@ -199,3 +199,107 @@ class MultimodalCDDataset(AbstractMultimodalCDDataset):
 
     def __str__(self):
         return f'Dataset with {self.length} samples.'
+
+
+class SimpleInferenceDataset(torch.utils.data.Dataset):
+
+    def __init__(self, cfg: experiment_manager.CfgNode, site: str, t1: str, t2: str, patch_size: int = 256):
+
+        self.cfg = cfg
+        self.root_path = Path(cfg.PATHS.DATASET)
+
+        self.site = site
+        self.t1 = t1
+        self.t2 = t2
+
+        self.s1_band_indices = cfg.DATALOADER.S1_BANDS
+        self.s2_band_indices = cfg.DATALOADER.S2_BANDS
+
+        self.img_s1_t1 = self._load_s1_img(t1)
+        self.img_s1_t2 = self._load_s1_img(t2)
+        self.img_s2_t1 = self._load_s2_img(t1)
+        self.img_s2_t2 = self._load_s2_img(t2)
+
+        self.transform = augmentations.compose_transformations(cfg, True)
+
+        self.patch_size = patch_size
+        m, n, _ = self.img_s1_t1.shape
+        self.m = m // patch_size
+        self.n = n // patch_size
+
+        self.patches = [(i, j) for j in range(self.n) for i in range(self.m)]
+
+        self.length = len(self.patches)
+
+    def __getitem__(self, index):
+
+        i, j = self.patches[index]
+        i_min, i_max = i * self.patch_size, (i + 1) * self.patch_size
+        j_min, j_max = j * self.patch_size, (j + 1) * self.patch_size
+
+        # t1
+        patch_s1_t1 = self.img_s1_t1[i_min:i_max, j_min:j_max, :]
+        patch_s2_t1 = self.img_s2_t1[i_min:i_max, j_min:j_max, :]
+
+        # t2
+        patch_s1_t2 = self.img_s1_t2[i_min:i_max, j_min:j_max, :]
+        patch_s2_t2 = self.img_s2_t2[i_min:i_max, j_min:j_max, :]
+
+
+        change_dummy = np.zeros((self.patch_size, self.patch_size, 1), dtype=np.float32)
+        buildings_dummy = np.zeros((self.patch_size, self.patch_size, 2), dtype=np.float32)
+
+        # transformation, but this ain't pretty
+        patches = np.concatenate((patch_s1_t1, patch_s1_t2, patch_s2_t1, patch_s2_t2), axis=-1)
+        patches, _, _ = self.transform((patches, buildings_dummy, change_dummy))
+        patches_s1 = patches[:2 * len(self.s1_band_indices), ]
+        patch_s1_t1, patch_s1_t2 = patches_s1[:len(self.s1_band_indices), ], patches_s1[len(self.s1_band_indices):, ]
+        patches_s2 = patches[2 * len(self.s1_band_indices):, ]
+        patch_s2_t1, patch_s2_t2 = patches_s2[:len(self.s2_band_indices), ], patches_s2[len(self.s2_band_indices):, ]
+
+        if self.cfg.DATALOADER.INPUT_MODE == 's1':
+            x_t1, x_t2 = patch_s1_t1, patch_s1_t2
+        elif self.cfg.DATALOADER.INPUT_MODE == 's2':
+            x_t1, x_t2 = patch_s2_t1, patch_s2_t2
+        else:
+            x_t1 = torch.concat((patch_s1_t1, patch_s2_t1), dim=0)
+            x_t2 = torch.concat((patch_s1_t2, patch_s2_t2), dim=0)
+
+        item = {
+            'x_t1': x_t1,
+            'x_t2': x_t2,
+            'i_min': i_min,
+            'i_max': i_max,
+            'j_min': j_min,
+            'j_max': j_max,
+        }
+
+        return item
+
+    def _load_s1_img(self, date: str) -> np.ndarray:
+        file = self.root_path / f'sentinel1_{self.site}_{date}.tif'
+        img, _, _ = geofiles.read_tif(file)
+        img = np.clip(img[:, :, self.s1_band_indices], 0, 1)
+        return np.nan_to_num(img).astype(np.float32)
+
+    def _load_s2_img(self, date: str) -> np.ndarray:
+        file = self.root_path / f'sentinel2_{self.site}_{date}.tif'
+        img, _, _ = geofiles.read_tif(file)
+        img = np.clip(img[:, :, self.s2_band_indices], 0, 1)
+        return np.nan_to_num(img).astype(np.float32)
+
+    def get_arr(self, dtype=np.uint8):
+        height = self.m * self.patch_size
+        width = self.n * self.patch_size
+        return np.zeros((height, width, 1), dtype=dtype)
+
+    def get_geo(self):
+        file = self.root_path / f'sentinel1_{self.site}_{self.t1}.tif'
+        _, transform, crs = geofiles.read_tif(file)
+        return transform, crs
+
+    def __len__(self):
+        return self.length
+
+    def __str__(self):
+        return f'Dataset with {self.length} samples.'
