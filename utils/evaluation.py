@@ -7,9 +7,10 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class Measurer(object):
-    def __init__(self, name: str = None, threshold: float = 0.5):
+    def __init__(self, run_type: str, task: str, threshold: float = 0.5):
 
-        self.name = name
+        self.run_type = run_type
+        self.task = task
         self.threshold = threshold
 
         self.TP = 0
@@ -63,7 +64,7 @@ def model_evaluation(net, cfg, run_type: str, epoch: float, step: int, early_sto
     net.to(device)
     net.eval()
 
-    measurer = Measurer('change')
+    measurer = Measurer(run_type, 'change')
 
     ds = datasets.MultimodalCDDataset(cfg, run_type, no_augmentations=True, dataset_mode='first_last',
                                       disable_multiplier=True, disable_unlabeled=True)
@@ -78,31 +79,27 @@ def model_evaluation(net, cfg, run_type: str, epoch: float, step: int, early_sto
             gt = item['y_change'].to(device)
             measurer.add_sample(gt.detach(), y_pred.detach())
 
-    return_value = None
-    if not measurer.is_empty():
-        f1 = measurer.f1()
-        false_pos_rate, false_neg_rate = measurer.compute_basic_metrics()
+    assert(not measurer.is_empty())
+    f1 = measurer.f1()
+    false_pos_rate, false_neg_rate = measurer.compute_basic_metrics()
 
-        suffix = 'earlystopping ' if early_stopping else ''
-        wandb.log({
-            suffix + f'{run_type} {measurer.name} F1': measurer.f1(),
-            suffix + f'{run_type} {measurer.name} fpr': false_pos_rate,
-            suffix + f'{run_type} {measurer.name} fnr': false_neg_rate,
-            'step': step, 'epoch': epoch,
-        })
+    suffix = 'earlystopping ' if early_stopping else ''
+    wandb.log({
+        suffix + f'{run_type} {measurer.task} F1': measurer.f1(),
+        suffix + f'{run_type} {measurer.task} fpr': false_pos_rate,
+        suffix + f'{run_type} {measurer.task} fnr': false_neg_rate,
+        'step': step, 'epoch': epoch,
+    })
 
-        if measurer.name == 'all':
-            return_value = f1
-
-    return return_value
+    return f1
 
 
 def model_evaluation_dt(net, cfg, run_type: str, epoch: float, step: int, early_stopping: bool = False):
     net.to(device)
     net.eval()
 
-    measurer_change = Measurer('change')
-    measurer_sem = Measurer('sem')
+    measurer_change = Measurer(run_type, 'change')
+    measurer_sem = Measurer(run_type, 'sem')
 
     ds = datasets.MultimodalCDDataset(cfg, run_type, no_augmentations=True, dataset_mode='first_last',
                                       disable_multiplier=True, disable_unlabeled=True)
@@ -130,20 +127,20 @@ def model_evaluation_dt(net, cfg, run_type: str, epoch: float, step: int, early_
 
     return_value = None
     for measurer in (measurer_change, measurer_sem):
-        if not measurer.is_empty():
-            f1 = measurer.f1()
-            false_pos_rate, false_neg_rate = measurer.compute_basic_metrics()
+        assert(not measurer.is_empty())
+        f1 = measurer.f1()
+        false_pos_rate, false_neg_rate = measurer.compute_basic_metrics()
 
-            suffix = 'earlystopping ' if early_stopping else ''
-            wandb.log({
-                suffix + f'{run_type} {measurer.name} F1': measurer.f1(),
-                suffix + f'{run_type} {measurer.name} fpr': false_pos_rate,
-                suffix + f'{run_type} {measurer.name} fnr': false_neg_rate,
-                'step': step, 'epoch': epoch,
-            })
+        suffix = 'earlystopping ' if early_stopping else ''
+        wandb.log({
+            suffix + f'{run_type} {measurer.name} F1': measurer.f1(),
+            suffix + f'{run_type} {measurer.name} fpr': false_pos_rate,
+            suffix + f'{run_type} {measurer.name} fnr': false_neg_rate,
+            'step': step, 'epoch': epoch,
+        })
 
-            if measurer.name == 'all':
-                return_value = f1
+        if measurer.task == 'change':
+            return_value = f1
 
     return return_value
 
@@ -152,8 +149,8 @@ def model_evaluation_mm_dt(net, cfg, run_type: str, epoch: float, step: int, ear
     net.to(device)
     net.eval()
 
-    measurer_change = Measurer('change')
-    measurer_sem = Measurer('sem')
+    measurer_change = Measurer(run_type, 'change')
+    measurer_sem = Measurer(run_type, 'sem')
 
     ds = datasets.MultimodalCDDataset(cfg, run_type, no_augmentations=True, dataset_mode='first_last',
                                       disable_multiplier=True, disable_unlabeled=True)
@@ -183,19 +180,19 @@ def model_evaluation_mm_dt(net, cfg, run_type: str, epoch: float, step: int, ear
 
     return_value = None
     for measurer in (measurer_change, measurer_sem):
-        if not measurer.is_empty():
-            f1 = measurer.f1()
-            false_pos_rate, false_neg_rate = measurer.compute_basic_metrics()
+        assert (not measurer.is_empty())
+        f1 = measurer.f1()
+        false_pos_rate, false_neg_rate = measurer.compute_basic_metrics()
 
-            suffix = 'earlystopping ' if early_stopping else ''
-            wandb.log({
-                suffix + f'{run_type} {measurer.name} F1': measurer.f1(),
-                suffix + f'{run_type} {measurer.name} fpr': false_pos_rate,
-                suffix + f'{run_type} {measurer.name} fnr': false_neg_rate,
-                'step': step, 'epoch': epoch,
-            })
+        suffix = 'earlystopping ' if early_stopping else ''
+        wandb.log({
+            suffix + f'{run_type} {measurer.name} F1': measurer.f1(),
+            suffix + f'{run_type} {measurer.name} fpr': false_pos_rate,
+            suffix + f'{run_type} {measurer.name} fnr': false_neg_rate,
+            'step': step, 'epoch': epoch,
+        })
 
-            if measurer.name == 'all':
-                return_value = f1
+        if measurer.task == 'change':
+            return_value = f1
 
     return return_value
