@@ -1,3 +1,0 @@
-_BASE_: "siamdiff_dt_s2_base.yaml"
-SEED: 5
-DEBUG: False

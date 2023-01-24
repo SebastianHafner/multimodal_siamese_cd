@@ -1,0 +1,6 @@
+_BASE_: "mmsiamdiff_s1s2_base.yaml"
+SEED: 3
+DEBUG: False
+
+DATALOADER:
+  TRAIN_PERCENTAGE: 40

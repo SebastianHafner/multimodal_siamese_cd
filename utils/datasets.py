@@ -84,12 +84,21 @@ class MultimodalCDDataset(AbstractMultimodalCDDataset):
         self.transform = augmentations.compose_transformations(cfg, no_augmentations)
 
         # loading labeled samples (sn7 train set) and subset to run type aoi ids
-        if run_type == 'training':
-            self.aoi_ids = list(cfg.DATASET.TRAINING_IDS)
-        elif run_type == 'validation':
+        if run_type == 'train':
+            if cfg.DATALOADER.TRAIN_PERCENTAGE == 100:
+                self.aoi_ids = list(cfg.DATASET.TRAIN_IDS)
+            elif cfg.DATALOADER.TRAIN_PERCENTAGE == 10:
+                self.aoi_ids = list(cfg.DATASET.TRAIN_10_IDS)
+            elif cfg.DATALOADER.TRAIN_PERCENTAGE == 20:
+                self.aoi_ids = list(cfg.DATASET.TRAIN_20_IDS)
+            elif cfg.DATALOADER.TRAIN_PERCENTAGE == 40:
+                self.aoi_ids = list(cfg.DATASET.TRAIN_40_IDS)
+        elif run_type == 'val':
             self.aoi_ids = list(cfg.DATASET.VALIDATION_IDS)
-        else:
+        elif run_type == 'test':
             self.aoi_ids = list(cfg.DATASET.TEST_IDS)
+        else:
+            raise Exception('Unknown run type!')
 
         self.labeled = [True] * len(self.aoi_ids)
 

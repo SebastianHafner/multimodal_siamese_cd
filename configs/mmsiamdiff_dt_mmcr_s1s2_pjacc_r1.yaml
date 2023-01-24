@@ -1,3 +1,0 @@
-_BASE_: "mmsiamdiff_dt_mmcr_s1s2_pjacc_base.yaml"
-SEED: 1
-DEBUG: False

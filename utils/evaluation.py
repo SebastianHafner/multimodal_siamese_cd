@@ -1,76 +1,69 @@
 import torch
 from torch.utils import data as torch_data
 import wandb
-from utils import datasets, metrics
+from utils import datasets
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def model_evaluation_mm_dt(net, cfg, device, run_type: str, epoch: float, step: int):
+class Measurer(object):
+    def __init__(self, name: str = None, threshold: float = 0.5):
 
+        self.name = name
+        self.threshold = threshold
+
+        self.TP = 0
+        self.TN = 0
+        self.FP = 0
+        self.FN = 0
+
+        self._precision = None
+        self._recall = None
+
+        self.eps = 10e-05
+
+    def add_sample(self, y: torch.Tensor, y_hat: torch.Tensor):
+        y = y.bool()
+        y_hat = y_hat > self.threshold
+
+        self.TP += torch.sum(y & y_hat).float()
+        self.TN += torch.sum(~y & ~y_hat).float()
+        self.FP += torch.sum(y_hat & ~y).float()
+        self.FN += torch.sum(~y_hat & y).float()
+
+    def precision(self):
+        if self._precision is None:
+            self._precision = self.TP / (self.TP + self.FP + self.eps)
+        return self._precision
+
+    def recall(self):
+        if self._recall is None:
+            self._recall = self.TP / (self.TP + self.FN + self.eps)
+        return self._recall
+
+    def compute_basic_metrics(self):
+        false_pos_rate = self.FP / (self.FP + self.TN + self.eps)
+        false_neg_rate = self.FN / (self.FN + self.TP + self.eps)
+        return false_pos_rate, false_neg_rate
+
+    def f1(self):
+        return (2 * self.precision() * self.recall()) / (self.precision() + self.recall() + self.eps)
+
+    def iou(self):
+        return self.TP / (self.TP + self.FP + self.FN + self.eps)
+
+    def oa(self):
+        return (self.TP + self.TN) / (self.TP + self.TN + self.FP + self.FN + self.eps)
+
+    def is_empty(self):
+        return True if (self.TP + self.TN + self.FP + self.FN) == 0 else False
+
+
+def model_evaluation(net, cfg, run_type: str, epoch: float, step: int, early_stopping: bool = False):
     net.to(device)
     net.eval()
 
-    thresholds = torch.linspace(0.5, 1, 1).to(device)
-    measurer_change = metrics.MultiThresholdMetric(thresholds)
-    measurer_sem = metrics.MultiThresholdMetric(thresholds)
-
-    ds = datasets.MultimodalCDDataset(cfg, run_type, no_augmentations=True, dataset_mode='first_last',
-                                      disable_multiplier=True, disable_unlabeled=True)
-    dataloader = torch_data.DataLoader(ds, batch_size=1, num_workers=0, shuffle=False, drop_last=False)
-    with torch.no_grad():
-        for step, item in enumerate(dataloader):
-            x_t1 = item['x_t1'].to(device)
-            x_t2 = item['x_t2'].to(device)
-            logits = net(x_t1, x_t2)
-
-            # change
-            gt_change = item['y_change'].to(device)
-            y_pred_change = torch.sigmoid(logits[0])
-            measurer_change.add_sample(gt_change.detach(), y_pred_change.detach())
-
-            # semantics
-            logits_fusion_sem_t1, logits_fusion_sem_t2 = logits[5:]
-            # t1
-            gt_sem_t1 = item['y_sem_t1'].to(device)
-            y_pred_fusion_sem_t1 = torch.sigmoid(logits_fusion_sem_t1)
-            measurer_sem.add_sample(gt_sem_t1.detach(), y_pred_fusion_sem_t1)
-            # t2
-            gt_sem_t2 = item['y_sem_t2'].to(device)
-            y_pred_fusion_sem_t2 = torch.sigmoid(logits_fusion_sem_t2)
-            measurer_sem.add_sample(gt_sem_t2, y_pred_fusion_sem_t2)
-
-    # change
-    f1s_change = measurer_change.compute_f1()
-    precisions_change, recalls_change = measurer_change.precision, measurer_change.recall
-    f1_change = f1s_change.max().item()
-    argmax_f1_change = f1s_change.argmax()
-    precision_change = precisions_change[argmax_f1_change].item()
-    recall_change = recalls_change[argmax_f1_change].item()
-
-    # semantics
-    f1s_sem = measurer_sem.compute_f1()
-    precisions_sem, recalls_sem = measurer_sem.precision, measurer_sem.recall
-    f1_sem = f1s_sem.max().item()
-    argmax_f1_sem = f1s_sem.argmax()
-    precision_sem = precisions_sem[argmax_f1_sem].item()
-    recall_sem = recalls_sem[argmax_f1_sem].item()
-
-    wandb.log({
-        f'{run_type} F1': f1_change,
-        f'{run_type} precision': precision_change,
-        f'{run_type} recall': recall_change,
-        f'{run_type} F1 sem': f1_sem,
-        f'{run_type} precision sem': precision_sem,
-        f'{run_type} recall sem': recall_sem,
-        'step': step, 'epoch': epoch,
-    })
-
-
-def model_evaluation(net, cfg, device, run_type: str, epoch: float, step: int):
-    net.to(device)
-    net.eval()
-
-    thresholds = torch.linspace(0.5, 1, 1).to(device)
-    measurer = metrics.MultiThresholdMetric(thresholds)
+    measurer = Measurer('change')
 
     ds = datasets.MultimodalCDDataset(cfg, run_type, no_augmentations=True, dataset_mode='first_last',
                                       disable_multiplier=True, disable_unlabeled=True)
@@ -85,29 +78,31 @@ def model_evaluation(net, cfg, device, run_type: str, epoch: float, step: int):
             gt = item['y_change'].to(device)
             measurer.add_sample(gt.detach(), y_pred.detach())
 
-    f1s = measurer.compute_f1()
-    precisions, recalls = measurer.precision, measurer.recall
+    return_value = None
+    if not measurer.is_empty():
+        f1 = measurer.f1()
+        false_pos_rate, false_neg_rate = measurer.compute_basic_metrics()
 
-    f1 = f1s.max().item()
-    argmax_f1 = f1s.argmax()
-    precision = precisions[argmax_f1].item()
-    recall = recalls[argmax_f1].item()
+        suffix = 'earlystopping ' if early_stopping else ''
+        wandb.log({
+            suffix + f'{run_type} {measurer.name} F1': measurer.f1(),
+            suffix + f'{run_type} {measurer.name} fpr': false_pos_rate,
+            suffix + f'{run_type} {measurer.name} fnr': false_neg_rate,
+            'step': step, 'epoch': epoch,
+        })
 
-    wandb.log({
-        f'{run_type} F1': f1,
-        f'{run_type} precision': precision,
-        f'{run_type} recall': recall,
-        'step': step, 'epoch': epoch,
-    })
+        if measurer.name == 'all':
+            return_value = f1
+
+    return return_value
 
 
-def model_evaluation_dt(net, cfg, device, run_type: str, epoch: float, step: int):
+def model_evaluation_dt(net, cfg, run_type: str, epoch: float, step: int, early_stopping: bool = False):
     net.to(device)
     net.eval()
 
-    thresholds = torch.linspace(0.5, 1, 1).to(device)
-    measurer_change = metrics.MultiThresholdMetric(thresholds)
-    measurer_sem = metrics.MultiThresholdMetric(thresholds)
+    measurer_change = Measurer('change')
+    measurer_sem = Measurer('sem')
 
     ds = datasets.MultimodalCDDataset(cfg, run_type, no_augmentations=True, dataset_mode='first_last',
                                       disable_multiplier=True, disable_unlabeled=True)
@@ -133,28 +128,74 @@ def model_evaluation_dt(net, cfg, device, run_type: str, epoch: float, step: int
             y_pred_sem_t2 = torch.sigmoid(logits_sem_t2)
             measurer_sem.add_sample(gt_sem_t2, y_pred_sem_t2)
 
-    # change
-    f1s_change = measurer_change.compute_f1()
-    precisions_change, recalls_change = measurer_change.precision, measurer_change.recall
-    f1_change = f1s_change.max().item()
-    argmax_f1_change = f1s_change.argmax()
-    precision_change = precisions_change[argmax_f1_change].item()
-    recall_change = recalls_change[argmax_f1_change].item()
+    return_value = None
+    for measurer in (measurer_change, measurer_sem):
+        if not measurer.is_empty():
+            f1 = measurer.f1()
+            false_pos_rate, false_neg_rate = measurer.compute_basic_metrics()
 
-    # semantics
-    f1s_sem = measurer_sem.compute_f1()
-    precisions_sem, recalls_sem = measurer_sem.precision, measurer_sem.recall
-    f1_sem = f1s_sem.max().item()
-    argmax_f1_sem = f1s_sem.argmax()
-    precision_sem = precisions_sem[argmax_f1_sem].item()
-    recall_sem = recalls_sem[argmax_f1_sem].item()
+            suffix = 'earlystopping ' if early_stopping else ''
+            wandb.log({
+                suffix + f'{run_type} {measurer.name} F1': measurer.f1(),
+                suffix + f'{run_type} {measurer.name} fpr': false_pos_rate,
+                suffix + f'{run_type} {measurer.name} fnr': false_neg_rate,
+                'step': step, 'epoch': epoch,
+            })
 
-    wandb.log({
-        f'{run_type} F1': f1_change,
-        f'{run_type} precision': precision_change,
-        f'{run_type} recall': recall_change,
-        f'{run_type} F1 sem': f1_sem,
-        f'{run_type} precision sem': precision_sem,
-        f'{run_type} recall sem': recall_sem,
-        'step': step, 'epoch': epoch,
-    })
+            if measurer.name == 'all':
+                return_value = f1
+
+    return return_value
+
+
+def model_evaluation_mm_dt(net, cfg, run_type: str, epoch: float, step: int, early_stopping: bool = False):
+    net.to(device)
+    net.eval()
+
+    measurer_change = Measurer('change')
+    measurer_sem = Measurer('sem')
+
+    ds = datasets.MultimodalCDDataset(cfg, run_type, no_augmentations=True, dataset_mode='first_last',
+                                      disable_multiplier=True, disable_unlabeled=True)
+    dataloader = torch_data.DataLoader(ds, batch_size=1, num_workers=0, shuffle=False, drop_last=False)
+
+    with torch.no_grad():
+        for step, item in enumerate(dataloader):
+            x_t1 = item['x_t1'].to(device)
+            x_t2 = item['x_t2'].to(device)
+            logits = net(x_t1, x_t2)
+
+            # change
+            gt_change = item['y_change'].to(device)
+            y_pred_change = torch.sigmoid(logits[0]).detach()
+            measurer_change.add_sample(gt_change, y_pred_change)
+
+            # semantics
+            logits_fusion_sem_t1, logits_fusion_sem_t2 = logits[5:]
+            # t1
+            gt_sem_t1 = item['y_sem_t1'].to(device)
+            y_pred_fusion_sem_t1 = torch.sigmoid(logits_fusion_sem_t1).detach()
+            measurer_sem.add_sample(gt_sem_t1, y_pred_fusion_sem_t1)
+            # t2
+            gt_sem_t2 = item['y_sem_t2'].to(device)
+            y_pred_fusion_sem_t2 = torch.sigmoid(logits_fusion_sem_t2).detach()
+            measurer_sem.add_sample(gt_sem_t2, y_pred_fusion_sem_t2)
+
+    return_value = None
+    for measurer in (measurer_change, measurer_sem):
+        if not measurer.is_empty():
+            f1 = measurer.f1()
+            false_pos_rate, false_neg_rate = measurer.compute_basic_metrics()
+
+            suffix = 'earlystopping ' if early_stopping else ''
+            wandb.log({
+                suffix + f'{run_type} {measurer.name} F1': measurer.f1(),
+                suffix + f'{run_type} {measurer.name} fpr': false_pos_rate,
+                suffix + f'{run_type} {measurer.name} fnr': false_neg_rate,
+                'step': step, 'epoch': epoch,
+            })
+
+            if measurer.name == 'all':
+                return_value = f1
+
+    return return_value

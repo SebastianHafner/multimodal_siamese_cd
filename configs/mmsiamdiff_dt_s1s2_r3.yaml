@@ -1,3 +1,0 @@
-_BASE_: "mmsiamdiff_dt_s1s2_base.yaml"
-SEED: 3
-DEBUG: False

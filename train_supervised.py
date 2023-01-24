@@ -6,27 +6,13 @@ import torch
 from torch import optim
 from torch.utils import data as torch_data
 
-from tabulate import tabulate
 import wandb
 import numpy as np
-from pathlib import Path
 
 from utils import networks, datasets, loss_functions, evaluation, experiment_manager, parsers
 
 
 def run_training(cfg):
-    run_config = {
-        'CONFIG_NAME': cfg.NAME,
-        'device': device,
-        'epochs': cfg.TRAINER.EPOCHS,
-        'learning rate': cfg.TRAINER.LR,
-        'batch size': cfg.TRAINER.BATCH_SIZE,
-    }
-    table = {'run config name': run_config.keys(),
-             ' ': run_config.values(),
-             }
-    print(tabulate(table, headers='keys', tablefmt="fancy_grid", ))
-
     net = networks.create_network(cfg)
     net.to(device)
     optimizer = optim.AdamW(net.parameters(), lr=cfg.TRAINER.LR, weight_decay=0.01)
@@ -34,7 +20,7 @@ def run_training(cfg):
     criterion = loss_functions.get_criterion(cfg.MODEL.LOSS_TYPE)
 
     # reset the generators
-    dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='training')
+    dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train')
     print(dataset)
 
     dataloader_kwargs = {
@@ -48,11 +34,14 @@ def run_training(cfg):
 
     # unpacking cfg
     epochs = cfg.TRAINER.EPOCHS
-    save_checkpoints = cfg.SAVE_CHECKPOINTS
     steps_per_epoch = len(dataloader)
 
     # tracking variables
     global_step = epoch_float = 0
+
+    # early stopping
+    best_f1_val, trigger_times = 0, 0
+    stop_training = False
 
     for epoch in range(1, epochs + 1):
         print(f'Starting epoch {epoch}/{epochs}.')
@@ -81,17 +70,8 @@ def run_training(cfg):
             global_step += 1
             epoch_float = global_step / steps_per_epoch
 
-            if cfg.DEBUG:
-                evaluation.model_evaluation(net, cfg, device, 'test', epoch_float, global_step)
-                break
-
-            if global_step % cfg.LOG_FREQ == 0:
+            if global_step % cfg.LOGGING.FREQUENCY == 0:
                 print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
-                # evaluation on sample of training and validation set
-                evaluation.model_evaluation(net, cfg, device, 'training', epoch_float, global_step)
-                evaluation.model_evaluation(net, cfg, device, 'validation', epoch_float, global_step)
-
-                # logging
                 time = timeit.default_timer() - start
                 wandb.log({
                     'loss': np.mean(loss_set),
@@ -107,13 +87,34 @@ def run_training(cfg):
         assert (epoch == epoch_float)
         print(f'epoch float {epoch_float} (step {global_step}) - epoch {epoch}')
         # evaluation at the end of an epoch
-        evaluation.model_evaluation(net, cfg, device, 'training', epoch_float, global_step)
-        evaluation.model_evaluation(net, cfg, device, 'validation', epoch_float, global_step)
-        evaluation.model_evaluation(net, cfg, device, 'test', epoch_float, global_step)
+        _ = evaluation.model_evaluation(net, cfg, 'train', epoch_float, global_step)
+        f1_val = evaluation.model_evaluation(net, cfg, 'val', epoch_float, global_step)
+        _ = evaluation.model_evaluation(net, cfg, 'test', epoch_float, global_step)
 
-        if epoch in save_checkpoints and not cfg.DEBUG:
-            print(f'saving network', flush=True)
+        if cfg.EARLY_STOPPING.ENABLE:
+            if f1_val <= best_f1_val:
+                trigger_times += 1
+                if trigger_times > cfg.EARLY_STOPPING.PATIENCE:
+                    stop_training = True
+            else:
+                best_f1_val = f1_val
+                print(f'saving network (F1 {f1_val:.3f})', flush=True)
+                networks.save_checkpoint(net, optimizer, epoch, global_step, cfg, early_stopping=True)
+                trigger_times = 0
+
+        if epoch == cfg.TRAINER.EPOCHS and not cfg.DEBUG:
+            print(f'saving network (end of training)', flush=True)
             networks.save_checkpoint(net, optimizer, epoch, global_step, cfg)
+
+        if stop_training:
+            break  # end of training by early stopping
+
+    # final logging for early stopping
+    if cfg.EARLY_STOPPING.ENABLE:
+        net, *_ = networks.load_checkpoint(cfg.TRAINER.EPOCHS, cfg, device, best_val=True)
+        _ = evaluation.model_evaluation(net, cfg, 'train', epoch_float, global_step, early_stopping=True)
+        _ = evaluation.model_evaluation(net, cfg, 'val', epoch_float, global_step, early_stopping=True)
+        _ = evaluation.model_evaluation(net, cfg, 'test', epoch_float, global_step, early_stopping=True)
 
 
 if __name__ == '__main__':
