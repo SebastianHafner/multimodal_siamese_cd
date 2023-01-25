@@ -111,9 +111,9 @@ if __name__ == '__main__':
         'metric': {'goal': 'maximize', 'name': 'val change F1'},
         'parameters':
             {
-                'lr': {'values': [0.001, 0.0001, 0.00001]},
+                'lr': {'values': [0.0001, 0.00001]},
                 'batch_size': {'values': [32, 16, 8]},
-                'epochs': {'values': [10, 20, 30]},
+                'epochs': {'values': [15, 30, 45]},
             }
     }
     # pprint.pprint(sweep_config)
