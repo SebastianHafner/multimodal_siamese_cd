@@ -39,10 +39,6 @@ def run_training(cfg):
     # tracking variables
     global_step = epoch_float = 0
 
-    # early stopping
-    best_f1_val, trigger_times = 0, 0
-    stop_training = False
-
     for epoch in range(1, epochs + 1):
         print(f'Starting epoch {epoch}/{epochs}.')
 
@@ -87,34 +83,9 @@ def run_training(cfg):
         assert (epoch == epoch_float)
         print(f'epoch float {epoch_float} (step {global_step}) - epoch {epoch}')
         # evaluation at the end of an epoch
-        _ = evaluation.model_evaluation(net, cfg, 'train', epoch_float, global_step)
-        f1_val = evaluation.model_evaluation(net, cfg, 'val', epoch_float, global_step)
-        _ = evaluation.model_evaluation(net, cfg, 'test', epoch_float, global_step)
-
-        if cfg.EARLY_STOPPING.ENABLE:
-            if f1_val <= best_f1_val:
-                trigger_times += 1
-                if trigger_times > cfg.EARLY_STOPPING.PATIENCE:
-                    stop_training = True
-            else:
-                best_f1_val = f1_val
-                print(f'saving network (F1 {f1_val:.3f})', flush=True)
-                networks.save_checkpoint(net, optimizer, epoch, global_step, cfg, early_stopping=True)
-                trigger_times = 0
-
-        if epoch == cfg.TRAINER.EPOCHS and not cfg.DEBUG:
-            print(f'saving network (end of training)', flush=True)
-            networks.save_checkpoint(net, optimizer, epoch, global_step, cfg)
-
-        if stop_training:
-            break  # end of training by early stopping
-
-    # final logging for early stopping
-    if cfg.EARLY_STOPPING.ENABLE:
-        net, *_ = networks.load_checkpoint(cfg.TRAINER.EPOCHS, cfg, device, best_val=True)
-        _ = evaluation.model_evaluation(net, cfg, 'train', epoch_float, global_step, early_stopping=True)
-        _ = evaluation.model_evaluation(net, cfg, 'val', epoch_float, global_step, early_stopping=True)
-        _ = evaluation.model_evaluation(net, cfg, 'test', epoch_float, global_step, early_stopping=True)
+        evaluation.model_evaluation(net, cfg, 'train', epoch_float, global_step)
+        evaluation.model_evaluation(net, cfg, 'val', epoch_float, global_step)
+        evaluation.model_evaluation(net, cfg, 'test', epoch_float, global_step)
 
 
 if __name__ == '__main__':

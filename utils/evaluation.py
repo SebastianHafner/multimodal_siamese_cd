@@ -60,7 +60,7 @@ class Measurer(object):
         return True if (self.TP + self.TN + self.FP + self.FN) == 0 else False
 
 
-def model_evaluation(net, cfg, run_type: str, epoch: float, step: int, early_stopping: bool = False):
+def model_evaluation(net, cfg, run_type: str, epoch: float, step: int):
     net.to(device)
     net.eval()
 
@@ -83,15 +83,12 @@ def model_evaluation(net, cfg, run_type: str, epoch: float, step: int, early_sto
     f1 = measurer.f1()
     false_pos_rate, false_neg_rate = measurer.compute_basic_metrics()
 
-    suffix = 'earlystopping ' if early_stopping else ''
     wandb.log({
-        suffix + f'{run_type} {measurer.task} F1': measurer.f1(),
-        suffix + f'{run_type} {measurer.task} fpr': false_pos_rate,
-        suffix + f'{run_type} {measurer.task} fnr': false_neg_rate,
+        f'{run_type} {measurer.task} F1': f1,
+        f'{run_type} {measurer.task} fpr': false_pos_rate,
+        f'{run_type} {measurer.task} fnr': false_neg_rate,
         'step': step, 'epoch': epoch,
     })
-
-    return f1
 
 
 def model_evaluation_dt(net, cfg, run_type: str, epoch: float, step: int, early_stopping: bool = False):

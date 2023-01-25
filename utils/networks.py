@@ -29,36 +29,28 @@ def create_network(cfg):
     return nn.DataParallel(model)
 
 
-def save_checkpoint(network, optimizer, epoch, step, cfg: experiment_manager.CfgNode, early_stopping: bool = False):
-    if early_stopping:
-        save_file = Path(cfg.PATHS.OUTPUT) / 'networks' / f'{cfg.NAME}_early_stopping.pt'
-    else:
-        save_file = Path(cfg.PATHS.OUTPUT) / 'networks' / f'{cfg.NAME}_checkpoint{epoch}.pt'
+def save_checkpoint(network, optimizer, epoch, cfg: experiment_manager.CfgNode):
+    save_file = Path(cfg.PATHS.OUTPUT) / 'networks' / f'{cfg.NAME}.pt'
     save_file.parent.mkdir(exist_ok=True)
     checkpoint = {
-        'step': step,
+        'epoch': epoch,
         'network': network.state_dict(),
         'optimizer': optimizer.state_dict()
     }
     torch.save(checkpoint, save_file)
 
 
-def load_checkpoint(epoch: float, cfg: experiment_manager.CfgNode, device: torch.device, net_file: Path = None,
-                    best_val: bool = False):
+def load_checkpoint(cfg: experiment_manager.CfgNode, device: torch.device):
     net = create_network(cfg)
     net.to(device)
-
-    if net_file is None:
-        net_file = Path(cfg.PATHS.OUTPUT) / 'networks' / f'{cfg.NAME}_checkpoint{epoch}.pt'
-    if best_val:
-        net_file = Path(cfg.PATHS.OUTPUT) / 'networks' / f'{cfg.NAME}_early_stopping.pt'
+    net_file = Path(cfg.PATHS.OUTPUT) / 'networks' / f'{cfg.NAME}.pt'
 
     checkpoint = torch.load(net_file, map_location=device)
     optimizer = torch.optim.AdamW(net.parameters(), lr=cfg.TRAINER.LR, weight_decay=0.01)
     net.load_state_dict(checkpoint['network'])
     optimizer.load_state_dict(checkpoint['optimizer'])
 
-    return net, optimizer, checkpoint['step']
+    return net, optimizer, checkpoint['epoch']
 
 
 class UNet(nn.Module):
