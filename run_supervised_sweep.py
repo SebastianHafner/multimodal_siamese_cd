@@ -97,7 +97,8 @@ if __name__ == '__main__':
                     # end of batch
 
                 assert (epoch == epoch_float)
-                print(f'epoch float {epoch_float} (step {global_step}) - epoch {epoch}')
+                # print(f'epoch float {epoch_float} (step {global_step}) - epoch {epoch}')
+
                 # evaluation at the end of an epoch
                 evaluation.model_evaluation(net, cfg, 'train', epoch_float, global_step)
                 evaluation.model_evaluation(net, cfg, 'val', epoch_float, global_step)
@@ -111,14 +112,14 @@ if __name__ == '__main__':
         'parameters':
             {
                 'lr': {'values': [0.001, 0.0001, 0.00001]},
-                'batch_size': {'values': [4]},
-                'epochs': {'values': [5, 10, 15]},
+                'batch_size': {'values': [32, 16, 8]},
+                'epochs': {'values': [10, 20, 30]},
             }
     }
-    pprint.pprint(sweep_config)
+    # pprint.pprint(sweep_config)
 
     # Step 3: Initialize sweep by passing in config
-    sweep_id = wandb.sweep(sweep=sweep_config, project=cfg.NAME, entity='population_mapping')
+    sweep_id = wandb.sweep(sweep=sweep_config, project=args.project, entity='population_mapping')
 
     # Step 4: Call to `wandb.agent` to start a sweep
-    wandb.agent(sweep_id, function=run_training, count=4)
+    wandb.agent(sweep_id, function=run_training)
