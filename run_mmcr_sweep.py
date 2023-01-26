@@ -35,7 +35,7 @@ if __name__ == '__main__':
             optimizer = optim.AdamW(net.parameters(), lr=sweep_cfg.lr, weight_decay=0.01)
 
             sup_criterion = loss_functions.get_criterion(cfg.MODEL.LOSS_TYPE)
-            cons_criterion = loss_functions.get_criterion(cfg.CONSISTENCY_TRAINER.LOSS_TYPE)
+            cons_criterion = loss_functions.get_criterion(sweep_cfg.cons_loss_type)
 
             # reset the generators
             dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train')
@@ -182,9 +182,10 @@ if __name__ == '__main__':
         'metric': {'goal': 'maximize', 'name': 'val change F1'},
         'parameters':
             {
+                'cons_loss_type': {'values': ['PowerJaccardLoss', 'L2']},
                 'loss_factor': {'values': [0.1, 0.01]},
                 'lr': {'values': [0.0001, 0.00001]},
-                'batch_size': {'values': [32, 16, 8]},
+                'batch_size': {'values': [16, 8]},
                 'epochs': {'values': [15, 30, 45]},
             }
     }

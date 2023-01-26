@@ -112,7 +112,7 @@ if __name__ == '__main__':
         'parameters':
             {
                 'lr': {'values': [0.0001, 0.00001]},
-                'batch_size': {'values': [32, 16, 8]},
+                'batch_size': {'values': [16, 8]},
                 'epochs': {'values': [15, 30, 45]},
             }
     }
