@@ -7,7 +7,7 @@ LOGGING:
 
 TRAINER:
   LR: 1e-4
-  BATCH_SIZE: 32
+  BATCH_SIZE: 16
   EPOCHS: 45
   OPTIMIZER: 'adamw'
 
