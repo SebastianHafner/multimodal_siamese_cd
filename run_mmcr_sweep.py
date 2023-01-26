@@ -98,8 +98,8 @@ if __name__ == '__main__':
                         sem_stream2_t2_loss = sup_criterion(logits_stream2_sem_t2[is_labeled], y_sem_t2[is_labeled])
                         sem_fusion_t2_loss = sup_criterion(logits_fusion_sem_t2[is_labeled], y_sem_t2[is_labeled])
 
-                        sem_loss = (sem_stream1_t1_loss + sem_stream1_t2_loss + sem_stream2_t1_loss + sem_stream2_t2_loss +
-                                    sem_fusion_t1_loss + sem_fusion_t2_loss) / 6
+                        sem_loss = (sem_stream1_t1_loss + sem_stream1_t2_loss + sem_stream2_t1_loss +
+                                    sem_stream2_t2_loss + sem_fusion_t1_loss + sem_fusion_t2_loss) / 6
 
                         sup_loss = (change_loss + sem_loss) / 2
 
@@ -184,7 +184,7 @@ if __name__ == '__main__':
                 'cons_loss_type': {'values': ['PowerJaccardLoss', 'L2']},
                 'loss_factor': {'values': [0.1, 0.01]},
                 'lr': {'values': [0.0001, 0.00001]},
-                'batch_size': {'values': [8]},
+                'batch_size': {'values': [2]},
                 'epochs': {'values': [15, 30, 45]},
             }
     }
