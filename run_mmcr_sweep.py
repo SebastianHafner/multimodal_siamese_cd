@@ -184,7 +184,7 @@ if __name__ == '__main__':
                 'cons_loss_type': {'values': ['PowerJaccardLoss', 'L2']},
                 'loss_factor': {'values': [0.1, 0.01]},
                 'lr': {'values': [0.0001, 0.00001]},
-                'batch_size': {'values': [16]},
+                'batch_size': {'values': [32, 16, 8]},
                 'epochs': {'values': [15, 30, 45]},
             }
     }
