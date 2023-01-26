@@ -26,7 +26,7 @@ if __name__ == '__main__':
 
     def run_training(sweep_cfg=None):
 
-        with wandb.init(config=sweep_cfg):
+        with wandb.init(config=sweep_cfg, mode='online' if not cfg.DEBUG else 'disabled'):
             sweep_cfg = wandb.config
 
             net = networks.create_network(cfg)
@@ -184,7 +184,7 @@ if __name__ == '__main__':
                 'cons_loss_type': {'values': ['PowerJaccardLoss', 'L2']},
                 'loss_factor': {'values': [0.1, 0.01]},
                 'lr': {'values': [0.0001, 0.00001]},
-                'batch_size': {'values': [2]},
+                'batch_size': {'values': [16]},
                 'epochs': {'values': [15, 30, 45]},
             }
     }
