@@ -3,7 +3,6 @@ from torch import optim
 from torch.utils import data as torch_data
 
 import timeit
-import pprint
 
 import wandb
 import numpy as np
@@ -185,11 +184,10 @@ if __name__ == '__main__':
                 'cons_loss_type': {'values': ['PowerJaccardLoss', 'L2']},
                 'loss_factor': {'values': [0.1, 0.01]},
                 'lr': {'values': [0.0001, 0.00001]},
-                'batch_size': {'values': [16, 8]},
+                'batch_size': {'values': [8]},
                 'epochs': {'values': [15, 30, 45]},
             }
     }
-    # pprint.pprint(sweep_config)
 
     # Step 3: Initialize sweep by passing in config
     sweep_id = wandb.sweep(sweep=sweep_config, project=args.project, entity='population_mapping')
