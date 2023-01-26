@@ -74,10 +74,10 @@ def model_evaluation(net, cfg, run_type: str, epoch: float, step: int):
             x_t1 = item['x_t1'].to(device)
             x_t2 = item['x_t2'].to(device)
             logits = net(x_t1, x_t2)
-            y_pred = torch.sigmoid(logits)
+            y_hat = torch.sigmoid(logits).detach()
 
-            gt = item['y_change'].to(device)
-            measurer.add_sample(gt.detach(), y_pred.detach())
+            y = item['y_change'].to(device)
+            measurer.add_sample(y, y_hat)
 
     assert(not measurer.is_empty())
     f1 = measurer.f1()
@@ -142,7 +142,7 @@ def model_evaluation_dt(net, cfg, run_type: str, epoch: float, step: int, early_
     return return_value
 
 
-def model_evaluation_mm_dt(net, cfg, run_type: str, epoch: float, step: int, early_stopping: bool = False):
+def model_evaluation_mm_dt(net, cfg, run_type: str, epoch: float, step: int):
     net.to(device)
     net.eval()
 
@@ -160,36 +160,29 @@ def model_evaluation_mm_dt(net, cfg, run_type: str, epoch: float, step: int, ear
             logits = net(x_t1, x_t2)
 
             # change
-            gt_change = item['y_change'].to(device)
-            y_pred_change = torch.sigmoid(logits[0]).detach()
-            measurer_change.add_sample(gt_change, y_pred_change)
+            y_change = item['y_change'].to(device)
+            y_hat_change = torch.sigmoid(logits[0]).detach()
+            measurer_change.add_sample(y_change, y_hat_change)
 
             # semantics
             logits_fusion_sem_t1, logits_fusion_sem_t2 = logits[5:]
             # t1
-            gt_sem_t1 = item['y_sem_t1'].to(device)
-            y_pred_fusion_sem_t1 = torch.sigmoid(logits_fusion_sem_t1).detach()
-            measurer_sem.add_sample(gt_sem_t1, y_pred_fusion_sem_t1)
+            y_sem_t1 = item['y_sem_t1'].to(device)
+            y_hat_fusion_sem_t1 = torch.sigmoid(logits_fusion_sem_t1).detach()
+            measurer_sem.add_sample(y_sem_t1, y_hat_fusion_sem_t1)
             # t2
-            gt_sem_t2 = item['y_sem_t2'].to(device)
-            y_pred_fusion_sem_t2 = torch.sigmoid(logits_fusion_sem_t2).detach()
-            measurer_sem.add_sample(gt_sem_t2, y_pred_fusion_sem_t2)
+            y_sem_t2 = item['y_sem_t2'].to(device)
+            y_hat_fusion_sem_t2 = torch.sigmoid(logits_fusion_sem_t2).detach()
+            measurer_sem.add_sample(y_sem_t2, y_hat_fusion_sem_t2)
 
-    return_value = None
     for measurer in (measurer_change, measurer_sem):
         assert (not measurer.is_empty())
         f1 = measurer.f1()
         false_pos_rate, false_neg_rate = measurer.compute_basic_metrics()
 
-        suffix = 'earlystopping ' if early_stopping else ''
         wandb.log({
-            suffix + f'{run_type} {measurer.name} F1': measurer.f1(),
-            suffix + f'{run_type} {measurer.name} fpr': false_pos_rate,
-            suffix + f'{run_type} {measurer.name} fnr': false_neg_rate,
+            f'{run_type} {measurer.task} F1': f1,
+            f'{run_type} {measurer.task} fpr': false_pos_rate,
+            f'{run_type} {measurer.task} fnr': false_neg_rate,
             'step': step, 'epoch': epoch,
         })
-
-        if measurer.task == 'change':
-            return_value = f1
-
-    return return_value

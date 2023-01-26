@@ -102,13 +102,13 @@ class MultimodalCDDataset(AbstractMultimodalCDDataset):
 
         self.labeled = [True] * len(self.aoi_ids)
 
-        # TODO:  unlabeled data for semi-supervised learning
-        if (cfg.DATALOADER.INCLUDE_UNLABELED or cfg.DATALOADER.INCLUDE_UNLABELED_VALIDATION) and not disable_unlabeled:
-            aoi_ids_unlabelled = []
-            if cfg.DATALOADER.INCLUDE_UNLABELED:
-                aoi_ids_unlabelled += list(cfg.DATASET.UNLABELED_IDS)
-            if cfg.DATALOADER.INCLUDE_UNLABELED_VALIDATION:
-                aoi_ids_unlabelled += list(cfg.DATASET.VALIDATION_IDS)
+        if cfg.DATALOADER.INCLUDE_UNLABELED and not disable_unlabeled:
+            assert(run_type == 'train')
+            aoi_ids_unlabelled = list(cfg.DATASET.UNLABELED_IDS)
+            if cfg.DATALOADER.USE_TRAIN_AS_UNLABELED and cfg.DATALOADER.TRAIN_PERCENTAGE != 100:
+                for aoi_id in cfg.DATASET.TRAIN_IDS:
+                    if aoi_id not in self.aoi_ids:
+                        aoi_ids_unlabelled.append(aoi_id)
             aoi_ids_unlabelled = sorted(aoi_ids_unlabelled)
             self.aoi_ids.extend(aoi_ids_unlabelled)
             self.labeled.extend([False] * len(aoi_ids_unlabelled))
