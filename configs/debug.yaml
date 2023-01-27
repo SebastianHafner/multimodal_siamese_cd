@@ -1,8 +1,8 @@
-_BASE_: "mmcr_train20_base.yaml"
+_BASE_: "dsunet_s1s2_base.yaml"
 DEBUG: True
 
 TRAINER:
-  BATCH_SIZE: 32
+  BATCH_SIZE: 16
 
 AUGMENTATION:
   CROP_SIZE: 64

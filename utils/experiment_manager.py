@@ -61,6 +61,8 @@ def setup_cfg(args):
     cfg.merge_from_file(f'configs/{args.config_file}.yaml')  # C:/Users/shafner/repos/multimodal_siamese_cd/
     cfg.merge_from_list(args.opts)
     cfg.NAME = args.config_file
+    name_parts = str(args.config_file).split('_')
+    cfg.GROUP = "_".join(name_parts[:-1]) if len(name_parts) > 1 else name_parts[0]
     cfg.PATHS.ROOT = str(Path.cwd())
     assert (Path(args.output_dir).exists())
     cfg.PATHS.OUTPUT = args.output_dir
@@ -73,6 +75,8 @@ def setup_cfg_manual(config_name: str, output_dir: Path, dataset_dir: Path):
     cfg = new_config()
     cfg.merge_from_file(f'configs/{config_name}.yaml')
     cfg.NAME = config_name
+    name_parts = str(args.config_file).split('_')
+    cfg.GROUP = "_".join(name_parts[:-1]) if len(name_parts) > 1 else name_parts[0]
     cfg.PATHS.ROOT = str(Path.cwd())
     assert output_dir.exists()
     cfg.PATHS.OUTPUT = str(output_dir)

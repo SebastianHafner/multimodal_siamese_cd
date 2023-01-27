@@ -90,6 +90,8 @@ def model_evaluation(net, cfg, run_type: str, epoch: float, step: int):
         'step': step, 'epoch': epoch,
     })
 
+    return f1
+
 
 def model_evaluation_dt(net, cfg, run_type: str, epoch: float, step: int, early_stopping: bool = False):
     net.to(device)
@@ -175,6 +177,7 @@ def model_evaluation_mm_dt(net, cfg, run_type: str, epoch: float, step: int):
             y_hat_fusion_sem_t2 = torch.sigmoid(logits_fusion_sem_t2).detach()
             measurer_sem.add_sample(y_sem_t2, y_hat_fusion_sem_t2)
 
+    return_value = None
     for measurer in (measurer_change, measurer_sem):
         assert (not measurer.is_empty())
         f1 = measurer.f1()
@@ -186,3 +189,8 @@ def model_evaluation_mm_dt(net, cfg, run_type: str, epoch: float, step: int):
             f'{run_type} {measurer.task} fnr': false_neg_rate,
             'step': step, 'epoch': epoch,
         })
+
+        if measurer.task == 'change':
+            return_value = f1
+
+    return return_value
