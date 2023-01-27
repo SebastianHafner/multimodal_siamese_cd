@@ -1,3 +1,0 @@
-_BASE_: "lfsiamdiff_dt_s1s2_base.yaml"
-SEED: 5
-DEBUG: False
