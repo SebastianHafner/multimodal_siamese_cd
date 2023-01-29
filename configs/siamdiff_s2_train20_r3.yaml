@@ -1,0 +1,3 @@
+_BASE_: "siamdiff_s2_train20_base.yaml"
+SEED: 3
+DEBUG: False
