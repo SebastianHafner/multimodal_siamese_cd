@@ -1,4 +1,4 @@
-_BASE_: "lfsiamdiff_dt_s1s2_base.yaml"
+_BASE_: "siamssl_s2_base.yaml"
 DEBUG: True
 
 TRAINER:

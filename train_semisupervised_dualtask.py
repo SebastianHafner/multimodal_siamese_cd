@@ -17,7 +17,8 @@ def run_training(cfg):
     net.to(device)
     optimizer = optim.AdamW(net.parameters(), lr=cfg.TRAINER.LR, weight_decay=0.01)
 
-    criterion = loss_functions.get_criterion(cfg.MODEL.LOSS_TYPE)
+    sup_criterion = loss_functions.get_criterion(cfg.MODEL.LOSS_TYPE)
+    cons_criterion = loss_functions.get_criterion(cfg.CONSISTENCY_TRAINER.LOSS_TYPE)
 
     # reset the generators
     dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train')
@@ -47,7 +48,9 @@ def run_training(cfg):
         print(f'Starting epoch {epoch}/{epochs}.')
 
         start = timeit.default_timer()
-        loss_set, sem_loss_set, change_loss_set = [], [], []
+        change_loss_set, sem_loss_set, sup_loss_set, cons_loss_set, loss_set = [], [], [], [], []
+
+        n_labeled, n_notlabeled = 0, 0
 
         for i, batch in enumerate(dataloader):
 
@@ -56,28 +59,59 @@ def run_training(cfg):
 
             x_t1 = batch['x_t1'].to(device)
             x_t2 = batch['x_t2'].to(device)
+
             logits_change, logits_sem_t1, logits_sem_t2 = net(x_t1, x_t2)
+            logits_change_sem = net.module.outc_change_sem(torch.cat((logits_sem_t1, logits_sem_t2), dim=1))
+            y_hat_change_sem = torch.sigmoid(logits_change_sem)
 
-            # change detection
-            y_change = batch['y_change'].to(device)
-            change_loss = criterion(logits_change, y_change)
+            sup_loss, cons_loss = None, None
 
-            # semantic segmentation
-            y_sem_t1 = batch['y_sem_t1'].to(device)
-            y_sem_t2 = batch['y_sem_t2'].to(device)
+            is_labeled = batch['is_labeled']
+            n_labeled += torch.sum(is_labeled).item()
+            if is_labeled.any():
+                # change detection
+                y_change = batch['y_change'].to(device)
+                change_loss = sup_criterion(logits_change[is_labeled], y_change[is_labeled])
+                change_sem_loss = sup_criterion(logits_change_sem[is_labeled], y_change[is_labeled])
 
-            sem_t1_loss = criterion(logits_sem_t1, y_sem_t1)
-            sem_t2_loss = criterion(logits_sem_t2, y_sem_t2)
-            sem_loss = (sem_t1_loss + sem_t2_loss)
+                # semantic segmentation
+                y_sem_t1 = batch['y_sem_t1'].to(device)
+                y_sem_t2 = batch['y_sem_t2'].to(device)
 
-            loss = change_loss + sem_loss
+                sem_t1_loss = sup_criterion(logits_sem_t1[is_labeled], y_sem_t1[is_labeled,])
+                sem_t2_loss = sup_criterion(logits_sem_t2[is_labeled], y_sem_t2[is_labeled,])
+
+                change_loss = (change_loss + change_sem_loss) / 2
+                sem_loss = (sem_t1_loss + sem_t2_loss) / 2
+                sup_loss = (change_loss + sem_loss) / 2
+
+                change_loss_set.append(change_loss.item())
+                sem_loss_set.append(sem_loss.item())
+                change_loss_set.append(change_loss.item())
+
+            if not is_labeled.all():
+                is_not_labeled = torch.logical_not(is_labeled)
+                n_notlabeled += torch.sum(is_not_labeled).item()
+
+                if cfg.CONSISTENCY_TRAINER.LOSS_TYPE == 'L2':
+                    y_hat_change = torch.sigmoid(logits_change)
+                    cons_loss = cons_criterion(y_hat_change[is_not_labeled], y_hat_change_sem[is_not_labeled])
+                else:
+                    cons_loss = cons_criterion(logits_change[is_not_labeled], y_hat_change_sem[is_not_labeled,])
+                cons_loss = cons_loss * cfg.CONSISTENCY_TRAINER.LOSS_FACTOR
+                cons_loss_set.append(cons_loss.item())
+
+            if sup_loss is None and cons_loss is not None:
+                loss = cons_loss
+            elif sup_loss is not None and cons_loss is not None:
+                loss = sup_loss + cons_loss
+            else:
+                loss = sup_loss
+
+            loss_set.append(loss.item())
 
             loss.backward()
             optimizer.step()
-
-            sem_loss_set.append(sem_loss.item())
-            change_loss_set.append(change_loss.item())
-            loss_set.append(loss.item())
 
             global_step += 1
             epoch_float = global_step / steps_per_epoch
@@ -86,16 +120,19 @@ def run_training(cfg):
                 print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
                 time = timeit.default_timer() - start
                 wandb.log({
-                    'change_loss': np.mean(change_loss_set),
-                    'sem_loss': np.mean(sem_loss_set),
+                    'change_loss': np.mean(change_loss_set) if len(change_loss_set) > 0 else 0,
+                    'sem_loss': np.mean(sem_loss_set) if len(sem_loss_set) > 0 else 0,
+                    'sup_loss': np.mean(sup_loss_set) if len(sup_loss_set) > 0 else 0,
+                    'cons_loss': np.mean(cons_loss_set) if len(cons_loss_set) > 0 else 0,
                     'loss': np.mean(loss_set),
-                    'labeled_percentage': 100,
+                    'labeled_percentage': n_labeled / (n_labeled + n_notlabeled) * 100,
                     'time': time,
                     'step': global_step,
                     'epoch': epoch_float,
                 })
                 start = timeit.default_timer()
-                loss_set, sem_loss_set, change_loss_set = [], [], []
+                n_labeled, n_notlabeled = 0, 0
+                change_loss_set, sem_loss_set, sup_loss_set, cons_loss_set, loss_set = [], [], [], [], []
             # end of batch
 
         assert (epoch == epoch_float)
