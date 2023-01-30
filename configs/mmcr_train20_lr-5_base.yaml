@@ -1,9 +1,0 @@
-_BASE_: "mmcr_base.yaml"
-SEED: 1
-DEBUG: False
-
-TRAINER:
-  LR: 1e-5
-
-DATALOADER:
-  TRAIN_PERCENTAGE: 20
