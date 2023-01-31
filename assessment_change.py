@@ -1,40 +1,28 @@
 import torch
-import numpy as np
-from utils import experiment_manager, networks, datasets, parsers, metrics, geofiles
-from sklearn.metrics import precision_recall_curve, auc
+from utils import experiment_manager, networks, datasets, parsers, geofiles, evaluation
 from pathlib import Path
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def quantitative_assessment_change(cfg: experiment_manager.CfgNode, run_type: str = 'test'):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    net, *_ = networks.load_checkpoint(cfg.INFERENCE_CHECKPOINT, cfg, device)
+    net, *_ = networks.load_checkpoint(cfg, device)
     net.eval()
 
-    y_preds = []
-    y_trues = []
+    measurer = evaluation.Measurer(run_type, 'change')
 
+    ds = datasets.MultimodalCDDataset(cfg, run_type, dataset_mode='first_last', no_augmentations=True,
+                                      disable_unlabeled=True, disable_multiplier=True)
     with torch.no_grad():
-        ds = datasets.MultimodalCDDataset(cfg, run_type, dataset_mode='first_last', no_augmentations=True,
-                                          disable_unlabeled=True, disable_multiplier=True)
-        with torch.no_grad():
-            for item in ds:
-                x_t1 = item['x_t1']
-                x_t2 = item['x_t2']
-                logits = net(x_t1.unsqueeze(0), x_t2.unsqueeze(0))
-                logits= logits[0] if isinstance(logits, tuple) else logits
-                y_pred = torch.sigmoid(logits).squeeze().detach().cpu().numpy()
-                gt = item['y_change'].squeeze().detach().cpu().numpy()
+        for item in ds:
+            x_t1 = item['x_t1'].to(device)
+            x_t2 = item['x_t2'].to(device)
+            logits = net(x_t1.unsqueeze(0), x_t2.unsqueeze(0))
+            logits = logits[0] if isinstance(logits, tuple) else logits
+            y_hat = torch.sigmoid(logits).squeeze().detach()
+            y = item['y_change'].to(device).squeeze().detach()
 
-                y_preds.append(y_pred.flatten())
-                y_trues.append(gt.flatten())
-
-    y_preds, y_trues = np.concatenate(y_preds), np.concatenate(y_trues)
-    f1 = metrics.f1_score_from_prob(y_preds, y_trues)
-    precision = metrics.precsision_from_prob(y_preds, y_trues)
-    recall = metrics.recall_from_prob(y_preds, y_trues)
-
-    precisions, recalls, _ = precision_recall_curve(y_trues, y_preds)
-    auc_pr = auc(recalls, precisions)
+            measurer.add_sample(y, y_hat)
 
     file = Path(cfg.PATHS.OUTPUT) / 'testing' / f'quantitative_results_change_{run_type}.json'
     if not file.exists():
@@ -43,10 +31,10 @@ def quantitative_assessment_change(cfg: experiment_manager.CfgNode, run_type: st
         data = geofiles.load_json(file)
 
     data[cfg.NAME] = {
-        'f1_score': f1,
-        'precision': precision,
-        'recall': recall,
-        'auc': auc_pr,
+        'f1_score': measurer.f1().item(),
+        'precision': measurer.precision().item(),
+        'recall': measurer.recall().item(),
+        'iou': measurer.iou().item(),
     }
 
     geofiles.write_json(file, data)
