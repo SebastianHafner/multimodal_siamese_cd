@@ -75,6 +75,9 @@ def run_training(cfg):
                 y_change = batch['y_change'].to(device)
                 change_loss = sup_criterion(logits_change[is_labeled], y_change[is_labeled])
 
+                change_loss = cfg.CONSISTENCY_TRAINER.LOSS_FACTOR_CHANGE * change_loss
+                change_loss_set.append(change_loss.item())
+
                 # semantics
                 y_sem_t1 = batch['y_sem_t1'].to(device)
                 sem_stream1_t1_loss = sup_criterion(logits_stream1_sem_t1[is_labeled], y_sem_t1[is_labeled])
@@ -89,10 +92,10 @@ def run_training(cfg):
                 sem_loss = (sem_stream1_t1_loss + sem_stream1_t2_loss + sem_stream2_t1_loss + sem_stream2_t2_loss +
                             sem_fusion_t1_loss + sem_fusion_t2_loss) / 6
 
-                sup_loss = (change_loss + sem_loss) / 2
-
-                change_loss_set.append(change_loss.item())
+                sem_loss = cfg.CONSISTENCY_TRAINER.LOSS_FACTOR_SEM * sem_loss
                 sem_loss_set.append(sem_loss.item())
+
+                sup_loss = change_loss + sem_loss
                 sup_loss_set.append(sup_loss.item())
 
             if not is_labeled.all():
@@ -116,7 +119,7 @@ def run_training(cfg):
                                                   y_hat_stream2_sem_t2[is_not_labeled])
 
                 cons_loss = (cons_loss_t1 + cons_loss_t2) / 2
-                cons_loss = cfg.CONSISTENCY_TRAINER.LOSS_FACTOR * cons_loss
+                cons_loss = cfg.CONSISTENCY_TRAINER.LOSS_FACTOR_CONS * cons_loss
                 cons_loss_set.append(cons_loss.item())
 
             if sup_loss is None and cons_loss is not None:
