@@ -1,26 +1,21 @@
 import torch
-import numpy as np
-from tqdm import tqdm
+from utils import experiment_manager, networks, datasets, parsers, geofiles, evaluation
 from pathlib import Path
-from utils import experiment_manager, networks, datasets, metrics, geofiles, parsers
-from sklearn.metrics import precision_recall_curve, auc
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def quantitative_assessment_semantic(cfg: experiment_manager.CfgNode, run_type: str = 'test'):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    net, *_ = networks.load_checkpoint(cfg.INFERENCE_CHECKPOINT, cfg, device)
+    net, *_ = networks.load_checkpoint(cfg, device)
     net.eval()
+
+    measurer = evaluation.Measurer(run_type, 'sem')
+
     ds = datasets.MultimodalCDDataset(cfg, run_type, dataset_mode='first_last', no_augmentations=True,
                                       disable_unlabeled=True, disable_multiplier=True)
 
-    y_trues, y_preds = [], []
-
     with torch.no_grad():
-        for item in tqdm(ds):
-            # semantic labels
-            gt_t1, gt_t2 = item['y_sem_t1'].to(device), item['y_sem_t2'].to(device)
-            y_trues.extend([gt_t1.flatten(), gt_t2.flatten()])
-
+        for item in ds:
             # semantic predictions
             x_t1, x_t2 = item['x_t1'].to(device), item['x_t2'].to(device)
             logits = net(x_t1.unsqueeze(0), x_t2.unsqueeze(0))
@@ -28,11 +23,13 @@ def quantitative_assessment_semantic(cfg: experiment_manager.CfgNode, run_type: 
                 _, logits_t1, logits_t2 = logits
             else:
                 logits_t1, logits_t2 = logits[5:]
-            pred_t1, pred_t2 = torch.sigmoid(logits_t1), torch.sigmoid(logits_t2)
-            y_preds.extend([pred_t1.flatten(), pred_t2.flatten()])
+            y_hat_t1, y_hat_t2 = torch.sigmoid(logits_t1), torch.sigmoid(logits_t2)
 
-    y_preds = torch.cat(y_preds).flatten().cpu().numpy()
-    y_trues = torch.cat(y_trues).flatten().cpu().numpy()
+            # semantic labels
+            y_t1, y_t2 = item['y_sem_t1'].to(device), item['y_sem_t2'].to(device)
+
+            measurer.add_sample(y_t1, y_hat_t1)
+            measurer.add_sample(y_t2, y_hat_t2)
 
     file = Path(cfg.PATHS.OUTPUT) / 'testing' / f'quantitative_results_semantic_{run_type}.json'
     if not file.exists():
@@ -40,17 +37,11 @@ def quantitative_assessment_semantic(cfg: experiment_manager.CfgNode, run_type: 
     else:
         data = geofiles.load_json(file)
 
-    f1 = metrics.f1_score_from_prob(y_preds, y_trues)
-    precision = metrics.precsision_from_prob(y_preds, y_trues)
-    recall = metrics.recall_from_prob(y_preds, y_trues)
-    precisions, recalls, _ = precision_recall_curve(y_trues, y_preds)
-    auc_pr = auc(recalls, precisions)
-
     data[cfg.NAME] = {
-        'f1_score': f1,
-        'precision': precision,
-        'recall': recall,
-        'auc': auc_pr,
+        'f1_score': measurer.f1().item(),
+        'precision': measurer.precision().item(),
+        'recall': measurer.recall().item(),
+        'iou': measurer.iou().item(),
     }
 
     geofiles.write_json(file, data)
