@@ -1,3 +1,0 @@
-_BASE_: "mmcr_cons1_base.yaml"
-SEED: 1
-DEBUG: False

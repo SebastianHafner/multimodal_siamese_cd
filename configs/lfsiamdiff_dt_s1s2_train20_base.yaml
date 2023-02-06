@@ -1,6 +1,0 @@
-_BASE_: "lfsiamdiff_dt_s1s2_base.yaml"
-SEED: 1
-DEBUG: False
-
-DATALOADER:
-  TRAIN_PERCENTAGE: 20

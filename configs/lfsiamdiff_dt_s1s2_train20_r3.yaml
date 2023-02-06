@@ -1,3 +1,0 @@
-_BASE_: "lfsiamdiff_dt_s1s2_train20_base.yaml"
-SEED: 3
-DEBUG: False

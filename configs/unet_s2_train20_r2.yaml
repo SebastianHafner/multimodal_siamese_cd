@@ -1,3 +1,0 @@
-_BASE_: "unet_s2_train20_base.yaml"
-SEED: 2
-DEBUG: False

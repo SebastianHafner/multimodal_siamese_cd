@@ -1,3 +1,0 @@
-_BASE_: "mmcr_train40_cons05_base.yaml"
-SEED: 3
-DEBUG: False

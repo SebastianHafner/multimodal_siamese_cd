@@ -1,3 +1,0 @@
-_BASE_: "siamssl_s2_train40_base.yaml"
-SEED: 2
-DEBUG: False

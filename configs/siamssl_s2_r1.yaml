@@ -1,3 +1,0 @@
-_BASE_: "siamssl_s2_base.yaml"
-SEED: 1
-DEBUG: False
