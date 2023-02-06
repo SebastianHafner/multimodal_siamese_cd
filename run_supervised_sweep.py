@@ -100,8 +100,6 @@ if __name__ == '__main__':
                     # end of batch
 
                 assert (epoch == epoch_float)
-                print(f'epoch float {epoch_float} (step {global_step}) - epoch {epoch}')
-                # evaluation at the end of an epoch
                 _ = evaluation.model_evaluation(net, cfg, 'train', epoch_float, global_step)
                 f1_val = evaluation.model_evaluation(net, cfg, 'val', epoch_float, global_step)
 
