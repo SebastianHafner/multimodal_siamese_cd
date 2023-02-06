@@ -81,13 +81,13 @@ def run_training(cfg):
                 sem_t1_loss = sup_criterion(logits_sem_t1[is_labeled], y_sem_t1[is_labeled,])
                 sem_t2_loss = sup_criterion(logits_sem_t2[is_labeled], y_sem_t2[is_labeled,])
 
-                change_loss = (change_loss + change_sem_loss) / 2
+                change_loss = change_loss + change_sem_loss
                 sem_loss = (sem_t1_loss + sem_t2_loss) / 2
-                sup_loss = (change_loss + sem_loss) / 2
+                sup_loss = change_loss + sem_loss
 
                 change_loss_set.append(change_loss.item())
                 sem_loss_set.append(sem_loss.item())
-                change_loss_set.append(change_loss.item())
+                sup_loss_set.append(sup_loss.item())
 
             if not is_labeled.all():
                 is_not_labeled = torch.logical_not(is_labeled)
