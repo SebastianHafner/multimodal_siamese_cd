@@ -59,9 +59,9 @@ def run_training(cfg):
 
             logits = net(x_t1, x_t2)
 
-            gt_change = batch['y_change'].to(device)
+            y_change = batch['y_change'].to(device)
 
-            loss = criterion(logits, gt_change)
+            loss = criterion(logits, y_change)
             loss.backward()
             optimizer.step()
 
@@ -90,20 +90,24 @@ def run_training(cfg):
         _ = evaluation.model_evaluation(net, cfg, 'train', epoch_float, global_step)
         f1_val = evaluation.model_evaluation(net, cfg, 'val', epoch_float, global_step)
 
-        if f1_val <= best_f1_val:
-            trigger_times += 1
-            if trigger_times > cfg.TRAINER.PATIENCE:
-                stop_training = True
-        else:
-            best_f1_val = f1_val
-            print(f'saving network (F1 {f1_val:.3f})', flush=True)
-            networks.save_checkpoint(net, optimizer, epoch, cfg)
-            trigger_times = 0
+        if not cfg.TRAINER.DISABLE_EARLY_STOPPING:
+            if f1_val <= best_f1_val:
+                trigger_times += 1
+                if trigger_times > cfg.TRAINER.PATIENCE:
+                    stop_training = True
+            else:
+                best_f1_val = f1_val
+                print(f'saving network (F1 {f1_val:.3f})', flush=True)
+                networks.save_checkpoint(net, optimizer, epoch, cfg)
+                trigger_times = 0
 
         if stop_training:
             break  # end of training by early stopping
 
-    net, *_ = networks.load_checkpoint(cfg, device)
+    if not cfg.TRAINER.DISABLE_EARLY_STOPPING:
+        net, *_ = networks.load_checkpoint(cfg, device)
+    else:
+        networks.save_checkpoint(net, optimizer, cfg.TRAINER.EPOCHS, cfg)
     _ = evaluation.model_evaluation(net, cfg, 'test', epoch_float, global_step)
 
 
