@@ -48,7 +48,7 @@ if __name__ == '__main__':
             dataloader = torch_data.DataLoader(dataset, **dataloader_kwargs)
 
             # unpacking cfg
-            epochs = sweep_cfg.epochs
+            epochs = cfg.TRAINER.EPOCHS
             steps_per_epoch = len(dataloader)
 
             # tracking variables
