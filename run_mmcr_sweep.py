@@ -179,6 +179,11 @@ if __name__ == '__main__':
                         stop_training = True
                 else:
                     best_f1_val = f1_val
+                    wandb.log({
+                        'best val change F1': best_f1_val,
+                        'step': global_step,
+                        'epoch': epoch_float,
+                    })
                     print(f'saving network (F1 {f1_val:.3f})', flush=True)
                     networks.save_checkpoint(net, optimizer, epoch, cfg)
                     trigger_times = 0
@@ -194,10 +199,10 @@ if __name__ == '__main__':
     sweep_config = {
         'method': 'grid',
         'name': cfg.NAME,
-        'metric': {'goal': 'maximize', 'name': 'test change F1'},
+        'metric': {'goal': 'maximize', 'name': 'best val change F1'},
         'parameters':
             {
-                'loss_factor': {'values': [0.01, 0.05, 0.1, 0.5]},
+                'loss_factor': {'values': [0.01, 0.1]},
                 'lr': {'values': [0.0001, 0.00005, 0.00001]},
                 'batch_size': {'values': [16, 8]},
             }
