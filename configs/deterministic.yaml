@@ -4,7 +4,7 @@ DEBUG: False
 TRAINER:
   LR: 1e-4
   BATCH_SIZE: 8
-  PATIENCE: 2
+  PATIENCE: 5
 
 MODEL:
   TYPE: 'unet'
