@@ -147,6 +147,11 @@ def run_training(cfg):
                 stop_training = True
         else:
             best_f1_val = f1_val
+            wandb.log({
+                'best val change F1': best_f1_val,
+                'step': global_step,
+                'epoch': epoch_float,
+            })
             print(f'saving network (F1 {f1_val:.3f})', flush=True)
             networks.save_checkpoint(net, optimizer, epoch, cfg)
             trigger_times = 0
