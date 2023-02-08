@@ -1,6 +1,8 @@
 _BASE_: "unet_s2_base.yaml"
-SEED: 1
-DEBUG: False
+
+TRAINER:
+  LR: 1e-4
+  BATCH_SIZE: 8
 
 DATALOADER:
   TRAIN_PERCENTAGE: 10
