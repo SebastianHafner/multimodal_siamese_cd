@@ -132,7 +132,7 @@ if __name__ == '__main__':
         'metric': {'goal': 'maximize', 'name': 'best val change F1'},
         'parameters':
             {
-                'lr': {'values': [0.0001]},
+                'lr': {'values': [0.0001, 0.00005, 0.00001]},
                 'batch_size': {'values': [16, 8]},
             }
     }

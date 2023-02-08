@@ -14,20 +14,19 @@ if __name__ == '__main__':
     args = parsers.training_argument_parser().parse_known_args()[0]
     cfg = experiment_manager.setup_cfg(args)
 
-    # make training deterministic
-    torch.manual_seed(cfg.SEED)
-    np.random.seed(cfg.SEED)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print('=== Runnning on device: p', device)
-
 
     def run_training(sweep_cfg=None):
 
         with wandb.init(config=sweep_cfg):
             sweep_cfg = wandb.config
+
+            # make training deterministic
+            torch.manual_seed(cfg.SEED)
+            np.random.seed(cfg.SEED)
+            torch.backends.cudnn.deterministic = True
+            torch.backends.cudnn.benchmark = False
 
             net = networks.create_network(cfg)
             net.to(device)
