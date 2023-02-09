@@ -193,26 +193,25 @@ if __name__ == '__main__':
             net, *_ = networks.load_checkpoint(cfg, device)
             _ = evaluation.model_evaluation_mm_dt(net, cfg, 'test', epoch_float, global_step)
 
-
-    # Step 2: Define sweep config
-    sweep_config = {
-        'method': 'grid',
-        'name': cfg.NAME,
-        'metric': {'goal': 'maximize', 'name': 'best val change F1'},
-        'parameters':
-            {
-                'loss_factor': {'values': [0.01, 0.1]},
-                'lr': {'values': [0.0001, 0.00005, 0.00001]},
-                'batch_size': {'values': [16, 8]},
-            }
-    }
-
-    # Step 3: Initialize sweep by passing in config or resume sweep
     if args.sweep_id is None:
+        # Step 2: Define sweep config
+        sweep_config = {
+            'method': 'grid',
+            'name': cfg.NAME,
+            'metric': {'goal': 'maximize', 'name': 'best val change F1'},
+            'parameters':
+                {
+                    'loss_factor': {'values': [0.01, 0.1]},
+                    'lr': {'values': [0.0001, 0.00005, 0.00001]},
+                    'batch_size': {'values': [16, 8]},
+                }
+        }
+        # Step 3: Initialize sweep by passing in config or resume sweep
         sweep_id = wandb.sweep(sweep=sweep_config, project=args.project, entity='population_mapping')
+        # Step 4: Call to `wandb.agent` to start a sweep
+        wandb.agent(sweep_id, function=run_training)
     else:
+        # Or resume existing sweep via its id
         # https://github.com/wandb/wandb/issues/1501
         sweep_id = args.sweep_id
-
-    # Step 4: Call to `wandb.agent` to start a sweep
-    wandb.agent(sweep_id, function=run_training)
+        wandb.agent(sweep_id, project=args.project, function=run_training)

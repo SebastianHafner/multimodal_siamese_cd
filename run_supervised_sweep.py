@@ -124,21 +124,18 @@ if __name__ == '__main__':
             net, *_ = networks.load_checkpoint(cfg, device)
             _ = evaluation.model_evaluation(net, cfg, 'test', epoch_float, global_step)
 
-
-    # Step 2: Define sweep config
-    sweep_config = {
-        'method': 'grid',
-        'name': cfg.NAME,
-        'metric': {'goal': 'maximize', 'name': 'best val change F1'},
-        'parameters':
-            {
-                'lr': {'values': [0.0001, 0.00005, 0.00001]},
-                'batch_size': {'values': [16, 8]},
-            }
-    }
-    # pprint.pprint(sweep_config)
-
     if args.sweep_id is None:
+        # Step 2: Define sweep config
+        sweep_config = {
+            'method': 'grid',
+            'name': cfg.NAME,
+            'metric': {'goal': 'maximize', 'name': 'best val change F1'},
+            'parameters':
+                {
+                    'lr': {'values': [0.0001, 0.00005, 0.00001]},
+                    'batch_size': {'values': [16, 8]},
+                }
+        }
         # Step 3: Initialize sweep by passing in config or resume sweep
         sweep_id = wandb.sweep(sweep=sweep_config, project=args.project, entity='population_mapping')
         # Step 4: Call to `wandb.agent` to start a sweep

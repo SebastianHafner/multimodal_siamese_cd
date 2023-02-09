@@ -11,7 +11,7 @@ from utils import networks, datasets, loss_functions, evaluation, experiment_man
 
 # https://github.com/wandb/examples/blob/master/colabs/pytorch/Organizing_Hyperparameter_Sweeps_in_PyTorch_with_W%26B.ipynb
 if __name__ == '__main__':
-    args = parsers.training_argument_parser().parse_known_args()[0]
+    args = parsers.sweep_argument_parser().parse_known_args()[0]
     cfg = experiment_manager.setup_cfg(args)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -149,22 +149,24 @@ if __name__ == '__main__':
             net, *_ = networks.load_checkpoint(cfg, device)
             _ = evaluation.model_evaluation_mm_dt(net, cfg, 'test', epoch_float, global_step)
 
-
-    # Step 2: Define sweep config
-    sweep_config = {
-        'method': 'grid',
-        'name': cfg.NAME,
-        'metric': {'goal': 'maximize', 'name': 'best val change F1'},
-        'parameters':
-            {
-                'lr': {'values': [0.0001, 0.00005, 0.00001]},
-                'batch_size': {'values': [16, 8]},
-            }
-    }
-    # pprint.pprint(sweep_config)
-
-    # Step 3: Initialize sweep by passing in config
-    sweep_id = wandb.sweep(sweep=sweep_config, project=args.project, entity='population_mapping')
-
-    # Step 4: Call to `wandb.agent` to start a sweep
-    wandb.agent(sweep_id, function=run_training)
+    if args.sweep_id is None:
+        # Step 2: Define sweep config
+        sweep_config = {
+            'method': 'grid',
+            'name': cfg.NAME,
+            'metric': {'goal': 'maximize', 'name': 'best val change F1'},
+            'parameters':
+                {
+                    'lr': {'values': [0.0001, 0.00005, 0.00001]},
+                    'batch_size': {'values': [16, 8]},
+                }
+        }
+        # Step 3: Initialize sweep by passing in config or resume sweep
+        sweep_id = wandb.sweep(sweep=sweep_config, project=args.project, entity='population_mapping')
+        # Step 4: Call to `wandb.agent` to start a sweep
+        wandb.agent(sweep_id, function=run_training)
+    else:
+        # Or resume existing sweep via its id
+        # https://github.com/wandb/wandb/issues/1501
+        sweep_id = args.sweep_id
+        wandb.agent(sweep_id, project=args.project, function=run_training)
