@@ -212,4 +212,4 @@ if __name__ == '__main__':
 
     # Step 4: Call to `wandb.agent` to start a sweep
     # https://github.com/wandb/wandb/issues/1501
-    wandb.agent(sweep_id, function=run_training)
+    wandb.agent('ou6q82z5', function=run_training)
