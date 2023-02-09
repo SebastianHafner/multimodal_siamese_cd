@@ -11,7 +11,7 @@ from utils import networks, datasets, loss_functions, evaluation, experiment_man
 
 # https://github.com/wandb/examples/blob/master/colabs/pytorch/Organizing_Hyperparameter_Sweeps_in_PyTorch_with_W%26B.ipynb
 if __name__ == '__main__':
-    args = parsers.training_argument_parser().parse_known_args()[0]
+    args = parsers.sweep_argument_parser().parse_known_args()[0]
     cfg = experiment_manager.setup_cfg(args)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -207,9 +207,12 @@ if __name__ == '__main__':
             }
     }
 
-    # Step 3: Initialize sweep by passing in config
-    sweep_id = wandb.sweep(sweep=sweep_config, project=args.project, entity='population_mapping')
+    # Step 3: Initialize sweep by passing in config or resume sweep
+    if args.sweep_id is None:
+        sweep_id = wandb.sweep(sweep=sweep_config, project=args.project, entity='population_mapping')
+    else:
+        # https://github.com/wandb/wandb/issues/1501
+        sweep_id = args.sweep_id
 
     # Step 4: Call to `wandb.agent` to start a sweep
-    # https://github.com/wandb/wandb/issues/1501
-    wandb.agent('ou6q82z5', function=run_training)
+    wandb.agent(sweep_id, function=run_training)
