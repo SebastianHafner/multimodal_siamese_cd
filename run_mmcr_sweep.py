@@ -211,4 +211,5 @@ if __name__ == '__main__':
     sweep_id = wandb.sweep(sweep=sweep_config, project=args.project, entity='population_mapping')
 
     # Step 4: Call to `wandb.agent` to start a sweep
+    # https://github.com/wandb/wandb/issues/1501
     wandb.agent(sweep_id, function=run_training)
