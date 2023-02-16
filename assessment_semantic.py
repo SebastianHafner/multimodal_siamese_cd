@@ -9,27 +9,42 @@ def quantitative_assessment_semantic(cfg: experiment_manager.CfgNode, run_type: 
     net, *_ = networks.load_checkpoint(cfg, device)
     net.eval()
 
-    measurer = evaluation.Measurer(run_type, 'sem')
+    measurer_s1 = evaluation.Measurer(run_type, 'sem_s1')
+    measurer_s2 = evaluation.Measurer(run_type, 'sem_s2')
+    measurer_s1s2 = evaluation.Measurer(run_type, 'sem_s1s2')
 
     ds = datasets.MultimodalCDDataset(cfg, run_type, dataset_mode='first_last', no_augmentations=True,
                                       disable_unlabeled=True, disable_multiplier=True)
 
     with torch.no_grad():
         for item in ds:
-            # semantic predictions
             x_t1, x_t2 = item['x_t1'].to(device), item['x_t2'].to(device)
+            y_t1, y_t2 = item['y_sem_t1'].to(device), item['y_sem_t2'].to(device)
+
             logits = net(x_t1.unsqueeze(0), x_t2.unsqueeze(0))
             if cfg.MODEL.TYPE == 'dtsiameseunet':
                 _, logits_t1, logits_t2 = logits
+                y_hat_t1, y_hat_t2 = torch.sigmoid(logits_t1), torch.sigmoid(logits_t2)
+                if cfg.DATALOADER.INPUT_MODE == 's1':
+                    measurer = measurer_s1
+                elif cfg.DATALOADER.INPUT_MODE == 's2':
+                    measurer = measurer_s2
+                elif cfg.DATALOADER.INPUT_MODE == 's1s2':
+                    measurer = measurer_s1s2
+                else:
+                    raise Exception('Uknown input mode!')
+                measurer_s2.add_sample(y_t1, y_hat_t1)
+                measurer_s2.add_sample(y_t2, y_hat_t2)
+            elif cfg.MODEL_TYPE == 'dtlatefusionsiameseunet':
+                logits_s1_t1, logits_s1_t2, logits_s2_t1, logits_s2_t2, logits_s1s2_t1, logits_s1s2_t2 = logits[1:]
+                measurer_s1.add_sample(y_t1, torch.sigmoid(logits_s1_t1))
+                measurer_s1.add_sample(y_t2, torch.sigmoid(logits_s1_t2))
+                measurer_s2.add_sample(y_t1, torch.sigmoid(logits_s2_t1))
+                measurer_s2.add_sample(y_t2, torch.sigmoid(logits_s2_t2))
+                measurer_s1s2.add_sample(y_t1, torch.sigmoid(logits_s1s2_t1))
+                measurer_s1s2.add_sample(y_t2, torch.sigmoid(logits_s1s2_t2))
             else:
-                logits_t1, logits_t2 = logits[5:]
-            y_hat_t1, y_hat_t2 = torch.sigmoid(logits_t1), torch.sigmoid(logits_t2)
-
-            # semantic labels
-            y_t1, y_t2 = item['y_sem_t1'].to(device), item['y_sem_t2'].to(device)
-
-            measurer.add_sample(y_t1, y_hat_t1)
-            measurer.add_sample(y_t2, y_hat_t2)
+                raise Exception('Uknown model type!')
 
     file = Path(cfg.PATHS.OUTPUT) / 'testing' / f'quantitative_results_semantic_{run_type}.json'
     if not file.exists():
@@ -37,10 +52,9 @@ def quantitative_assessment_semantic(cfg: experiment_manager.CfgNode, run_type: 
     else:
         data = geofiles.load_json(file)
 
+    for measurer in
     data[cfg.NAME] = {
         'f1_score': measurer.f1().item(),
-        'precision': measurer.precision().item(),
-        'recall': measurer.recall().item(),
         'iou': measurer.iou().item(),
     }
 
