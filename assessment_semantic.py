@@ -33,8 +33,8 @@ def quantitative_assessment_semantic(cfg: experiment_manager.CfgNode, run_type: 
                     measurer = measurer_s1s2
                 else:
                     raise Exception('Uknown input mode!')
-                measurer_s2.add_sample(y_t1, y_hat_t1)
-                measurer_s2.add_sample(y_t2, y_hat_t2)
+                measurer.add_sample(y_t1, y_hat_t1)
+                measurer.add_sample(y_t2, y_hat_t2)
             elif cfg.MODEL.TYPE == 'dtlatefusionsiameseunet':
                 logits_s1_t1, logits_s1_t2, logits_s2_t1, logits_s2_t2, logits_s1s2_t1, logits_s1s2_t2 = logits[1:]
                 measurer_s1.add_sample(y_t1, torch.sigmoid(logits_s1_t1))
