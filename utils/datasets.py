@@ -93,9 +93,9 @@ class MultimodalCDDataset(AbstractMultimodalCDDataset):
                 self.aoi_ids = list(cfg.DATASET.TRAIN_20_IDS)
             elif cfg.DATALOADER.TRAIN_PERCENTAGE == 40:
                 self.aoi_ids = list(cfg.DATASET.TRAIN_40_IDS)
-        elif run_type == 'val':
+        elif run_type == 'val' or (run_type == 'test' and cfg.DATALOADER.SWAP_VAL_TEST):
             self.aoi_ids = list(cfg.DATASET.VALIDATION_IDS)
-        elif run_type == 'test':
+        elif run_type == 'test' or (run_type == 'val' and cfg.DATALOADER.SWAP_VAL_TEST):
             self.aoi_ids = list(cfg.DATASET.TEST_IDS)
         else:
             raise Exception('Unknown run type!')
