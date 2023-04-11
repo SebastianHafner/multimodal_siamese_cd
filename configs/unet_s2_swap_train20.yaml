@@ -1,9 +1,9 @@
-_BASE_: "siamdiff_dt_s2_base.yaml"
+_BASE_: "unet_s2_base.yaml"
 
 TRAINER:
   LR: 1e-4
   BATCH_SIZE: 8
 
 DATALOADER:
-  TRAIN_PERCENTAGE: 100
+  TRAIN_PERCENTAGE: 20
   SWAP_VAL_TEST: True

@@ -1,7 +1,7 @@
 _BASE_: "siamdiff_s2_base.yaml"
 
 TRAINER:
-  LR: 5e-5
+  LR: 1e-4
   BATCH_SIZE: 16
 
 DATALOADER:
