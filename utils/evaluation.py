@@ -60,6 +60,47 @@ class Measurer(object):
         return True if (self.TP + self.TN + self.FP + self.FN) == 0 else False
 
 
+class SiteMeasurer(object):
+    def __init__(self, run_type: str, task: str, threshold: float = 0.5):
+
+        self.run_type = run_type
+        self.task = task
+        self.threshold = threshold
+
+        self.f1_scores = []
+        self.iou_values = []
+
+        self.eps = 10e-05
+
+    def add_sample(self, y: torch.Tensor, y_hat: torch.Tensor):
+        y = y.bool()
+        y_hat = y_hat > self.threshold
+
+        TP = torch.sum(y & y_hat).float().item()
+        FP = torch.sum(y_hat & ~y).float().item()
+        FN = torch.sum(~y_hat & y).float().item()
+
+        self.f1_scores.append(self.f1(TP, FP, FN))
+        self.iou_values.append(self.iou(TP, FP, FN))
+
+    def precision(self, tp, fp):
+        return tp / (tp + fp + self.eps)
+
+    def recall(self, tp, fn):
+        return tp / (tp + fn + self.eps)
+
+    def f1(self, tp, fp, fn):
+        prec = self.precision(tp, fp)
+        rec = self.recall(tp, fn)
+        return (2 * prec * rec) / (prec + rec + self.eps)
+
+    def iou(self, tp, fp, fn):
+        return tp / (tp + fp + fn + self.eps)
+
+    def is_empty(self):
+        return True if len(self.f1_scores) == 0 else False
+
+
 def model_evaluation(net, cfg, run_type: str, epoch: float, step: int):
     net.to(device)
     net.eval()

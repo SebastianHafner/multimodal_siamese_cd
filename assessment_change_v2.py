@@ -9,8 +9,7 @@ def quantitative_assessment_change(cfg: experiment_manager.CfgNode, run_type: st
     net, *_ = networks.load_checkpoint(cfg, device)
     net.eval()
 
-    measurer = evaluation.Measurer(run_type, 'change')
-    measurer_site = evaluation.SiteMeasurer(run_type, 'change')
+    measurer = evaluation.SiteMeasurer(run_type, 'change')
 
     ds = datasets.MultimodalCDDataset(cfg, run_type, dataset_mode='first_last', no_augmentations=True,
                                       disable_unlabeled=True, disable_multiplier=True)
@@ -24,21 +23,16 @@ def quantitative_assessment_change(cfg: experiment_manager.CfgNode, run_type: st
             y = item['y_change'].to(device).squeeze().detach()
 
             measurer.add_sample(y, y_hat)
-            measurer_site.add_sample(y, y_hat)
 
-    file = Path(cfg.PATHS.OUTPUT) / 'testing' / f'quantitative_results_change_{run_type}.json'
+    file = Path(cfg.PATHS.OUTPUT) / 'testing' / f'quantitative_results_v2_change_{run_type}.json'
     if not file.exists():
         data = {}
     else:
         data = geofiles.load_json(file)
 
     data[cfg.NAME] = {
-        'f1_score': measurer.f1().item(),
-        'precision': measurer.precision().item(),
-        'recall': measurer.recall().item(),
-        'iou': measurer.iou().item(),
-        'f1_scores': measurer_site.f1_scores,
-        'iou_values': measurer_site.iou_values,
+        'f1_scores': measurer.f1_scores,
+        'iou': measurer.iou_values,
     }
 
     geofiles.write_json(file, data)
