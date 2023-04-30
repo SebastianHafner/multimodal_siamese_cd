@@ -1,0 +1,12 @@
+_BASE_: "mmcr_base.yaml"
+
+TRAINER:
+  LR: 5e-5
+  BATCH_SIZE: 8
+
+DATALOADER:
+  STOCKHOLM_DATES: ['2020spring', '2020summer', '2020fall', '2021spring', '2021summer', '2021fall', '2022spring',
+                    '2022summer', '2022fall', '2023spring']
+
+CONSISTENCY_TRAINER:
+  LOSS_FACTOR: 0.01
