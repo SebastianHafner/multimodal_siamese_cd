@@ -93,6 +93,8 @@ class MultimodalCDDataset(AbstractMultimodalCDDataset):
                 self.aoi_ids = list(cfg.DATASET.TRAIN_20_IDS)
             elif cfg.DATALOADER.TRAIN_PERCENTAGE == 40:
                 self.aoi_ids = list(cfg.DATASET.TRAIN_40_IDS)
+            elif cfg.DATALOADER.TRAIN_PERCENTAGE == 80:
+                self.aoi_ids = list(cfg.DATASET.TRAIN_80_IDS)
         elif run_type == 'val':
             if cfg.DATALOADER.SWAP_VAL_TEST:
                 self.aoi_ids = list(cfg.DATASET.TEST_IDS)
