@@ -125,7 +125,7 @@ if __name__ == '__main__':
                     # end of batch
 
                 assert (epoch == epoch_float)
-                _ = evaluation.model_evaluation_mm_dt(net, cfg, 'train', epoch_float, global_step)
+                # _ = evaluation.model_evaluation_mm_dt(net, cfg, 'train', epoch_float, global_step)
                 f1_val = evaluation.model_evaluation_mm_dt(net, cfg, 'val', epoch_float, global_step)
 
                 if f1_val <= best_f1_val:
