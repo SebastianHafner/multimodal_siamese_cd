@@ -1,11 +1,12 @@
-_BASE_: "siamssl_s2_base.yaml"
+_BASE_: "mmcr_base.yaml"
 
 TRAINER:
   LR: 1e-4
   BATCH_SIZE: 8
 
 DATALOADER:
-  TRAIN_PERCENTAGE: 10
+  TRAIN_PERCENTAGE: 80
+  SWAP_VAL_TEST: True
 
 CONSISTENCY_TRAINER:
   LOSS_FACTOR: 0.1
