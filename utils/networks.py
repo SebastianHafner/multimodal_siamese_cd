@@ -18,6 +18,8 @@ def create_network(cfg):
         model = SiameseUNet(cfg)
     elif cfg.MODEL.TYPE == 'dtsiameseunet':
         model = DualTaskSiameseUNet(cfg)
+    elif cfg.MODEL.TYPE == 'semicdnet':
+        model = SemiCDUNet(cfg)
     elif cfg.MODEL.TYPE == 'dtlatefusionsiameseunet':
         model = DualTaskLateFusionSiameseUnet(cfg)
     elif cfg.MODEL.TYPE == 'multimodalsiameseunet':
@@ -191,6 +193,52 @@ class DualTaskSiameseUNet(nn.Module):
         out_sem_t1 = self.outc_sem(x2_t1)
 
         return out_change, out_sem_t1, out_sem_t2
+
+
+class SemiCDUNet(nn.Module):
+    def __init__(self, cfg):
+        super(SemiCDUNet, self).__init__()
+        self.cfg = cfg
+
+        n_channels = cfg.MODEL.IN_CHANNELS
+        n_classes = cfg.MODEL.OUT_CHANNELS
+        topology = cfg.MODEL.TOPOLOGY
+
+        self.inc = InConv(n_channels, topology[0], DoubleConv)
+
+        self.encoder = Encoder(cfg)
+        self.main_decoder = Decoder(cfg)
+        self.main_outc = OutConv(topology[0], n_classes)
+
+        self.feature_noise_decoder = Decoder(cfg)
+        self.feature_noise_outc = OutConv(topology[0], n_classes)
+
+    def forward(self, x_t1: torch.Tensor, x_t2: torch.Tensor) -> tuple:
+        x1_t1 = self.inc(x_t1)
+        features_t1 = self.encoder(x1_t1)
+
+        x1_t2 = self.inc(x_t2)
+        features_t2 = self.encoder(x1_t2)
+
+        features_diff = []
+        for f_t1, f_t2 in zip(features_t1, features_t2):
+            f_diff = torch.sub(f_t2, f_t1)
+            features_diff.append(f_diff)
+
+        if self.training:
+            # apply feature noise to difference features
+            features_diff_noisy = [torch.clone(t) for t in features_diff]
+
+            x2 = self.main_decoder(features_diff)
+            out = self.main_outc(x2)
+
+            x2_noisy = self.feature_noise_decoder(features_diff_noisy)
+            out_noisy = self.feature_noise_outc(x2_noisy)
+            return out, out_noisy
+        else:
+            x2 = self.main_decoder(features_diff)
+            out = self.main_outc(x2)
+            return out
 
 
 class DualTaskLateFusionSiameseUnet(nn.Module):

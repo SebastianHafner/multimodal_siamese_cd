@@ -1,0 +1,13 @@
+_BASE_: "base.yaml"
+
+MODEL:
+  TYPE: 'semicdnet'
+  IN_CHANNELS: 4
+
+DATALOADER:
+  INPUT_MODE: 's2'
+  INCLUDE_UNLABELED: True
+  USE_TRAIN_AS_UNLABELED: True
+
+CONSISTENCY_TRAINER:
+  LOSS_TYPE: 'PowerJaccardLoss'
