@@ -1,4 +1,4 @@
-_BASE_: "semicd_s2_base.yaml"
+_BASE_: "siamesessl_s2_nowarmup_train10.yaml"
 DEBUG: True
 
 TRAINER:
