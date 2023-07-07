@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from collections import OrderedDict
+from torch.distributions.uniform import Uniform
 
 from pathlib import Path
 
@@ -212,6 +213,13 @@ class SemiCDUNet(nn.Module):
 
         self.feature_noise_decoder = Decoder(cfg)
         self.feature_noise_outc = OutConv(topology[0], n_classes)
+        uniform_range = 0.3
+        self.uni_dist = Uniform(-uniform_range, uniform_range)
+
+    def _add_feature_noise(self, x: torch.Tensor):
+        noise_vector = self.uni_dist.sample(x.shape[1:]).to(x.device).unsqueeze(0)
+        x_noise = x.mul(noise_vector) + x
+        return x_noise
 
     def forward(self, x_t1: torch.Tensor, x_t2: torch.Tensor) -> tuple:
         x1_t1 = self.inc(x_t1)
@@ -227,7 +235,7 @@ class SemiCDUNet(nn.Module):
 
         if self.training:
             # apply feature noise to difference features
-            features_diff_noisy = [torch.clone(t) for t in features_diff]
+            features_diff_noisy = [self._add_feature_noise(torch.clone(t)) for t in features_diff]
 
             x2 = self.main_decoder(features_diff)
             out = self.main_outc(x2)
