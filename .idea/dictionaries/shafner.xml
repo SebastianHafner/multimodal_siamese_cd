@@ -1,6 +1,9 @@
 <component name="ProjectDictionaryState">
   <dictionary name="shafner">
     <words>
+      <w>dataloader</w>
+      <w>logits</w>
+      <w>notlabeled</w>
       <w>warmup</w>
     </words>
   </dictionary>

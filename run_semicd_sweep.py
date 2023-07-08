@@ -35,10 +35,6 @@ if __name__ == '__main__':
             sup_criterion = loss_functions.get_criterion(cfg.MODEL.LOSS_TYPE)
             cons_criterion = loss_functions.get_criterion(cfg.CONSISTENCY_TRAINER.LOSS_TYPE)
 
-            # reset the generators
-            dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train')
-            print(dataset)
-
             dataloader_kwargs = {
                 'batch_size': sweep_cfg.batch_size,
                 'num_workers': 0 if cfg.DEBUG else cfg.DATALOADER.NUM_WORKER,
@@ -46,11 +42,10 @@ if __name__ == '__main__':
                 'drop_last': True,
                 'pin_memory': True,
             }
-            dataloader = torch_data.DataLoader(dataset, **dataloader_kwargs)
 
             # unpacking cfg
             epochs = cfg.TRAINER.EPOCHS
-            steps_per_epoch = len(dataloader)
+            warmup_epochs = cfg.TRAINER.WARMUP_EPOCHS
 
             # tracking variables
             global_step = epoch_float = 0
@@ -59,7 +54,86 @@ if __name__ == '__main__':
             best_f1_val, trigger_times = 0, 0
             stop_training = False
 
-            for epoch in range(1, epochs + 1):
+            # reset the generators
+            warmup_dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train', disable_unlabeled=True)
+            print(warmup_dataset)
+            warmup_dataloader = torch_data.DataLoader(warmup_dataset, **dataloader_kwargs)
+            steps_per_warmup_epoch = len(warmup_dataloader)
+
+            for epoch in range(1, warmup_epochs + 1):
+                print(f'Starting epoch {epoch}/{epochs} (warmup epoch {epoch}/{warmup_epochs}).')
+
+                start = timeit.default_timer()
+                change_loss_set, sup_loss_set, loss_set = [], [], []
+
+                for i, batch in enumerate(warmup_dataloader):
+
+                    net.train()
+                    optimizer.zero_grad()
+
+                    x_t1 = batch['x_t1'].to(device)
+                    x_t2 = batch['x_t2'].to(device)
+
+                    logits_change, logits_change_noisy = net(x_t1, x_t2)
+
+                    # change detection
+                    y_change = batch['y_change'].to(device)
+                    change_loss = sup_criterion(logits_change, y_change)
+                    sup_loss = change_loss
+                    change_loss_set.append(change_loss.item())
+                    sup_loss_set.append(sup_loss.item())
+                    loss = sup_loss
+                    loss_set.append(loss.item())
+
+                    loss.backward()
+                    optimizer.step()
+
+                    global_step += 1
+                    epoch_float = global_step / steps_per_warmup_epoch
+
+                    if global_step % cfg.LOGGING.FREQUENCY == 0:
+                        print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
+                        time = timeit.default_timer() - start
+                        wandb.log({
+                            'change_loss': np.mean(change_loss_set) if len(change_loss_set) > 0 else 0,
+                            'sup_loss': np.mean(sup_loss_set) if len(sup_loss_set) > 0 else 0,
+                            'cons_loss': 0,
+                            'loss': np.mean(loss_set),
+                            'labeled_percentage': 100,
+                            'time': time,
+                            'step': global_step,
+                            'epoch': epoch_float,
+                        })
+                        start = timeit.default_timer()
+                        change_loss_set, sup_loss_set, loss_set = [], [], []
+                    # end of batch
+
+                assert (epoch == epoch_float)
+                print(f'epoch float {epoch_float} (step {global_step}) - epoch {epoch}')
+                # evaluation at the end of an epoch
+                # _ = evaluation.model_evaluation(net, cfg, 'train', epoch_float, global_step)
+                f1_val = evaluation.model_evaluation(net, cfg, 'val', epoch_float, global_step)
+
+                if f1_val <= best_f1_val:
+                    trigger_times += 1
+                else:
+                    best_f1_val = f1_val
+                    wandb.log({
+                        'best val change F1': best_f1_val,
+                        'step': global_step,
+                        'epoch': epoch_float,
+                    })
+                    print(f'saving network (F1 {f1_val:.3f})', flush=True)
+                    networks.save_checkpoint(net, optimizer, epoch, cfg)
+                    trigger_times = 0
+
+            # reset the generators
+            dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train')
+            print(dataset)
+            dataloader = torch_data.DataLoader(dataset, **dataloader_kwargs)
+            steps_per_epoch = len(dataloader)
+
+            for epoch in range(warmup_epochs + 1, epochs + 1):
                 print(f'Starting epoch {epoch}/{epochs}.')
 
                 start = timeit.default_timer()
@@ -116,7 +190,7 @@ if __name__ == '__main__':
                     optimizer.step()
 
                     global_step += 1
-                    epoch_float = global_step / steps_per_epoch
+                    epoch_float = warmup_epochs + (global_step - warmup_epochs * steps_per_warmup_epoch) / steps_per_epoch
 
                     if global_step % cfg.LOGGING.FREQUENCY == 0:
                         print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
@@ -139,7 +213,7 @@ if __name__ == '__main__':
                 assert (epoch == epoch_float)
                 print(f'epoch float {epoch_float} (step {global_step}) - epoch {epoch}')
                 # evaluation at the end of an epoch
-                _ = evaluation.model_evaluation(net, cfg, 'train', epoch_float, global_step)
+                # _ = evaluation.model_evaluation(net, cfg, 'train', epoch_float, global_step)
                 f1_val = evaluation.model_evaluation(net, cfg, 'val', epoch_float, global_step)
 
                 if f1_val <= best_f1_val:

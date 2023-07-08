@@ -1,5 +1,8 @@
 _BASE_: "base.yaml"
 
+TRAINER:
+  WARMUP_EPOCHS: 0
+
 MODEL:
   TYPE: 'semicdnet'
   IN_CHANNELS: 2
