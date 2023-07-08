@@ -1,7 +1,8 @@
-_BASE_: "siamesessl_s2_nowarmup_train10.yaml"
+_BASE_: "siamesessl_s2_train10.yaml"
 DEBUG: True
 
 TRAINER:
+  WARMUP_EPOCHS: 1
   BATCH_SIZE: 8
 
 AUGMENTATION:

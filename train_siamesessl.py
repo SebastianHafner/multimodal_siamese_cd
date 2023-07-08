@@ -40,10 +40,10 @@ def run_training(cfg):
     stop_training = False
 
     # reset the generators
-    dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train', disable_unlabeled=True)
-    print(dataset)
-    dataloader = torch_data.DataLoader(dataset, **dataloader_kwargs)
-    steps_per_epoch = len(dataloader)
+    warmup_dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train', disable_unlabeled=True)
+    print(warmup_dataset)
+    warmup_dataloader = torch_data.DataLoader(warmup_dataset, **dataloader_kwargs)
+    steps_per_warmup_epoch = len(warmup_dataloader)
 
     for epoch in range(1, warmup_epochs + 1):
         print(f'Starting epoch {epoch}/{epochs} (warmup epoch {epoch}/{warmup_epochs}).')
@@ -51,7 +51,7 @@ def run_training(cfg):
         start = timeit.default_timer()
         change_loss_set, sem_loss_set, sup_loss_set, loss_set = [], [], [], []
 
-        for i, batch in enumerate(dataloader):
+        for i, batch in enumerate(warmup_dataloader):
 
             net.train()
             optimizer.zero_grad()
@@ -90,7 +90,7 @@ def run_training(cfg):
             optimizer.step()
 
             global_step += 1
-            epoch_float = global_step / steps_per_epoch
+            epoch_float = global_step / steps_per_warmup_epoch
 
             if global_step % cfg.LOGGING.FREQUENCY == 0:
                 print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
@@ -113,7 +113,7 @@ def run_training(cfg):
         assert (epoch == epoch_float)
         print(f'epoch float {epoch_float} (step {global_step}) - epoch {epoch}')
         # evaluation at the end of an epoch
-        _ = evaluation.model_evaluation_dt(net, cfg, 'train', epoch_float, global_step)
+        # _ = evaluation.model_evaluation_dt(net, cfg, 'train', epoch_float, global_step)
         f1_val = evaluation.model_evaluation_dt(net, cfg, 'val', epoch_float, global_step)
 
         if f1_val <= best_f1_val:
@@ -205,7 +205,7 @@ def run_training(cfg):
             optimizer.step()
 
             global_step += 1
-            epoch_float = global_step / steps_per_epoch
+            epoch_float = warmup_epochs + (global_step - warmup_epochs * steps_per_warmup_epoch) / steps_per_epoch
 
             if global_step % cfg.LOGGING.FREQUENCY == 0:
                 print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
