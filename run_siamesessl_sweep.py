@@ -203,7 +203,7 @@ if __name__ == '__main__':
                             y_hat_change = torch.sigmoid(logits_change)
                             cons_loss = cons_criterion(y_hat_change[is_not_labeled], y_hat_change_sem[is_not_labeled])
                         else:
-                            cons_loss = cons_criterion(logits_change[is_not_labeled], y_hat_change_sem[is_not_labeled,])
+                            cons_loss = cons_criterion(logits_change[is_not_labeled], y_hat_change_sem[is_not_labeled])
                         cons_loss = cons_loss * sweep_cfg.loss_factor
                         cons_loss_set.append(cons_loss.item())
 
