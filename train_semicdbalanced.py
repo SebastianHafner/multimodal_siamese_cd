@@ -116,7 +116,7 @@ def run_training(cfg):
     labeled_dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train', disable_unlabeled=True)
     unlabeled_dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train', only_unlabeled=True)
     print(labeled_dataset, unlabeled_dataset)
-    dataloader_kwargs['batch_size'] = cfg.TRAINER.BATCH_SIZE // 2
+    dataloader_kwargs['batch_size'] = int(cfg.TRAINER.BATCH_SIZE // 2)
     labeled_dataloader = torch_data.DataLoader(labeled_dataset, **dataloader_kwargs)
     unlabeled_dataloader = torch_data.DataLoader(unlabeled_dataset, **dataloader_kwargs)
 
@@ -138,7 +138,7 @@ def run_training(cfg):
             x_t1_l = labeled_batch['x_t1'].to(device)
             x_t2_l = labeled_batch['x_t2'].to(device)
             y_change = labeled_batch['y_change'].to(device)
-            print(f'{i}/{steps_per_epoch} {torch.sum(y_change).item()}')
+            # print(f'{i}/{steps_per_epoch} {torch.sum(y_change).item()}')
 
             logits_change_l, _ = net(x_t1_l, x_t2_l)
 
