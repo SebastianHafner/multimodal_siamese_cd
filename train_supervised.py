@@ -60,6 +60,7 @@ def run_training(cfg):
             logits = net(x_t1, x_t2)
 
             gt_change = batch['y_change'].to(device)
+            # print(f'{i}/{steps_per_epoch} {torch.sum(gt_change).item()}')
 
             loss = criterion(logits, gt_change)
             loss.backward()

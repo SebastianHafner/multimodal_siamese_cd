@@ -7,9 +7,7 @@ import timeit
 import wandb
 import numpy as np
 
-from utils import networks, datasets, loss_functions, evaluation, experiment_manager, parsers
-
-from itertools import cycle
+from utils import networks, datasets, loss_functions, evaluation, experiment_manager, parsers, helpers
 
 # https://github.com/wandb/examples/blob/master/colabs/pytorch/Organizing_Hyperparameter_Sweeps_in_PyTorch_with_W%26B.ipynb
 if __name__ == '__main__':
@@ -144,7 +142,7 @@ if __name__ == '__main__':
 
                 start = timeit.default_timer()
                 change_loss_set, sup_loss_set, cons_loss_set, loss_set = [], [], [], []
-                dataloader = zip(cycle(labeled_dataloader), unlabeled_dataloader)
+                dataloader = iter(zip(helpers.cycle(labeled_dataloader), unlabeled_dataloader))
 
                 for i, (labeled_batch, unlabeled_batch) in enumerate(dataloader):
 
