@@ -9,9 +9,7 @@ from torch.utils import data as torch_data
 import wandb
 import numpy as np
 
-from utils import networks, datasets, loss_functions, evaluation, experiment_manager, parsers
-
-from itertools import cycle
+from utils import networks, datasets, loss_functions, evaluation, experiment_manager, parsers, helpers
 
 
 def run_training(cfg):
@@ -28,7 +26,7 @@ def run_training(cfg):
     print(labeled_dataset, unlabeled_dataset)
 
     dataloader_kwargs = {
-        'batch_size': cfg.TRAINER.BATCH_SIZE // 2,
+        'batch_size': int(cfg.TRAINER.BATCH_SIZE // 2),
         'num_workers': 0 if cfg.DEBUG else cfg.DATALOADER.NUM_WORKER,
         'shuffle': cfg.DATALOADER.SHUFFLE,
         'drop_last': True,
@@ -53,7 +51,7 @@ def run_training(cfg):
 
         start = timeit.default_timer()
         change_loss_set, sem_loss_set, sup_loss_set, cons_loss_set, loss_set = [], [], [], [], []
-        dataloader = zip(cycle(labeled_dataloader), unlabeled_dataloader)
+        dataloader = iter(zip(helpers.cycle(labeled_dataloader), unlabeled_dataloader))
 
         for i, (labeled_batch, unlabeled_batch) in enumerate(dataloader):
 

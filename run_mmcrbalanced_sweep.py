@@ -7,9 +7,7 @@ import timeit
 import wandb
 import numpy as np
 
-from utils import networks, datasets, loss_functions, evaluation, experiment_manager, parsers
-
-from itertools import cycle
+from utils import networks, datasets, loss_functions, evaluation, experiment_manager, parsers, helpers
 
 # https://github.com/wandb/examples/blob/master/colabs/pytorch/Organizing_Hyperparameter_Sweeps_in_PyTorch_with_W%26B.ipynb
 if __name__ == '__main__':
@@ -44,7 +42,7 @@ if __name__ == '__main__':
             print(labeled_dataset, unlabeled_dataset)
 
             dataloader_kwargs = {
-                'batch_size': sweep_cfg.batch_size // 2,
+                'batch_size': int(sweep_cfg.batch_size // 2),
                 'num_workers': 0 if cfg.DEBUG else cfg.DATALOADER.NUM_WORKER,
                 'shuffle': cfg.DATALOADER.SHUFFLE,
                 'drop_last': True,
@@ -69,7 +67,7 @@ if __name__ == '__main__':
 
                 start = timeit.default_timer()
                 change_loss_set, sem_loss_set, sup_loss_set, cons_loss_set, loss_set = [], [], [], [], []
-                dataloader = zip(cycle(labeled_dataloader), unlabeled_dataloader)
+                dataloader = iter(zip(helpers.cycle(labeled_dataloader), unlabeled_dataloader))
 
                 for i, (labeled_batch, unlabeled_batch) in enumerate(dataloader):
 
@@ -128,7 +126,7 @@ if __name__ == '__main__':
                         cons_loss_t2 = cons_criterion(logits_ul_stream1_sem_t2, y_hat_ul_stream2_sem_t2)
 
                     cons_loss = (cons_loss_t1 + cons_loss_t2) / 2
-                    cons_loss = cfg.CONSISTENCY_TRAINER.LOSS_FACTOR * cons_loss
+                    cons_loss = sweep_cfg.loss_factor * cons_loss
                     cons_loss_set.append(cons_loss.item())
 
                     loss = sup_loss + cons_loss
