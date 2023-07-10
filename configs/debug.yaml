@@ -1,9 +1,12 @@
-_BASE_: "siamesessl_s2_train10.yaml"
+_BASE_: "semicdbalanced_s2_train10.yaml"
 DEBUG: True
 
 TRAINER:
-  WARMUP_EPOCHS: 1
-  BATCH_SIZE: 8
+  WARMUP_EPOCHS: 0
+  BATCH_SIZE: 4
+
+DATALOADER:
+  TRAINING_MULTIPLIER: 2
 
 AUGMENTATION:
   CROP_SIZE: 64

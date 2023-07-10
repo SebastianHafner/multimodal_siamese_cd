@@ -73,7 +73,8 @@ class AbstractMultimodalCDDataset(torch.utils.data.Dataset):
 class MultimodalCDDataset(AbstractMultimodalCDDataset):
 
     def __init__(self, cfg: experiment_manager.CfgNode, run_type: str, no_augmentations: bool = False,
-                 dataset_mode: str = None, disable_multiplier: bool = False, disable_unlabeled: bool = False):
+                 dataset_mode: str = None, disable_multiplier: bool = False, disable_unlabeled: bool = False,
+                 only_unlabeled: bool = False):
         super().__init__(cfg, run_type)
 
         self.dataset_mode = cfg.DATALOADER.DATASET_MODE if dataset_mode is None else dataset_mode
@@ -84,7 +85,9 @@ class MultimodalCDDataset(AbstractMultimodalCDDataset):
         self.transform = augmentations.compose_transformations(cfg, no_augmentations)
 
         # loading labeled samples (sn7 train set) and subset to run type aoi ids
-        if run_type == 'train':
+        if only_unlabeled:
+            self.aoi_ids = []
+        elif run_type == 'train':
             if cfg.DATALOADER.TRAIN_PERCENTAGE == 100:
                 self.aoi_ids = list(cfg.DATASET.TRAIN_IDS)
             elif cfg.DATALOADER.TRAIN_PERCENTAGE == 10:
