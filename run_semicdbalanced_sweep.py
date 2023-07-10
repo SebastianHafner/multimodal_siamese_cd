@@ -146,7 +146,7 @@ if __name__ == '__main__':
                 start = timeit.default_timer()
                 change_loss_set, sup_loss_set, cons_loss_set, loss_set = [], [], [], []
                 dataloader = zip(cycle(labeled_dataloader), unlabeled_dataloader)
-                
+
                 for i, (labeled_batch, unlabeled_batch) in enumerate(dataloader):
 
                     net.train()
@@ -185,8 +185,7 @@ if __name__ == '__main__':
                     optimizer.step()
 
                     global_step += 1
-                    epoch_float = warmup_epochs + (
-                                global_step - warmup_epochs * steps_per_warmup_epoch) / steps_per_epoch
+                    epoch_float = warmup_epochs + (global_step - warmup_epochs * steps_per_warmup_epoch) / steps_per_epoch
 
                     if global_step % cfg.LOGGING.FREQUENCY == 0:
                         print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
@@ -231,7 +230,6 @@ if __name__ == '__main__':
 
             net, *_ = networks.load_checkpoint(cfg, device)
             _ = evaluation.model_evaluation(net, cfg, 'test', epoch_float, global_step)
-
 
     if args.sweep_id is None:
         # Step 2: Define sweep config
