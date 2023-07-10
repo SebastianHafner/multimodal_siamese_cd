@@ -1,7 +1,7 @@
 _BASE_: "base.yaml"
 
 TRAINER:
-  WARMUP_EPOCHS: 5
+  WARMUP_EPOCHS: 0
 
 MODEL:
   TYPE: 'dtsiameseunet'
