@@ -1,9 +1,10 @@
 import torch
 from pathlib import Path
 from utils import experiment_manager, networks, datasets, parsers, geofiles
+from utils.experiment_manager import CfgNode
 
 
-def inference_change(cfg: experiment_manager.CfgNode, run_type: str = 'test'):
+def inference_change(cfg: CfgNode, run_type: str = 'test'):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     net, *_ = networks.load_checkpoint(cfg, device)
     net.eval()
