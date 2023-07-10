@@ -36,7 +36,7 @@ if __name__ == '__main__':
             cons_criterion = loss_functions.get_criterion(cfg.CONSISTENCY_TRAINER.LOSS_TYPE)
 
             dataloader_kwargs = {
-                'batch_size': sweep_cfg.batch_size // 2,
+                'batch_size': sweep_cfg.batch_size,
                 'num_workers': 0 if cfg.DEBUG else cfg.DATALOADER.NUM_WORKER,
                 'shuffle': cfg.DATALOADER.SHUFFLE,
                 'drop_last': True,
@@ -131,7 +131,7 @@ if __name__ == '__main__':
             labeled_dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train', disable_unlabeled=True)
             unlabeled_dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train', only_unlabeled=True)
             print(labeled_dataset, unlabeled_dataset)
-            dataloader_kwargs['batch_size'] = cfg.TRAINER.BATCH_SIZE // 2
+            dataloader_kwargs['batch_size'] = int(cfg.TRAINER.BATCH_SIZE // 2)
             labeled_dataloader = torch_data.DataLoader(labeled_dataset, **dataloader_kwargs)
             unlabeled_dataloader = torch_data.DataLoader(unlabeled_dataset, **dataloader_kwargs)
 
