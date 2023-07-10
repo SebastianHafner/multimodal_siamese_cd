@@ -19,7 +19,6 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print('=== Runnning on device: p', device)
 
-
     def run_training(sweep_cfg=None):
 
         with wandb.init(config=sweep_cfg, mode='online' if not cfg.DEBUG else 'disabled'):
@@ -39,7 +38,7 @@ if __name__ == '__main__':
             cons_criterion = loss_functions.get_criterion(cfg.CONSISTENCY_TRAINER.LOSS_TYPE)
 
             dataloader_kwargs = {
-                'batch_size': sweep_cfg.batch_size,
+                'batch_size': sweep_cfg.batch_size // 2,
                 'num_workers': 0 if cfg.DEBUG else cfg.DATALOADER.NUM_WORKER,
                 'shuffle': cfg.DATALOADER.SHUFFLE,
                 'drop_last': True,
