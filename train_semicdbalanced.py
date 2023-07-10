@@ -64,7 +64,8 @@ def run_training(cfg):
             # change detection
             y_change = batch['y_change'].to(device)
             change_loss = sup_criterion(logits_change, y_change)
-            sup_loss = change_loss
+            change_noisy_loss = sup_criterion(logits_change_noisy, y_change)
+            sup_loss = (change_loss + change_noisy_loss) / 2
             change_loss_set.append(change_loss.item())
             sup_loss_set.append(sup_loss.item())
             loss = sup_loss

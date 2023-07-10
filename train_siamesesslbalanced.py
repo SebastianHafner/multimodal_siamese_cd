@@ -9,9 +9,7 @@ from torch.utils import data as torch_data
 import wandb
 import numpy as np
 
-from utils import networks, datasets, loss_functions, evaluation, experiment_manager, parsers
-
-from itertools import cycle
+from utils import networks, datasets, loss_functions, evaluation, experiment_manager, parsers, helpers
 
 
 def run_training(cfg):
@@ -70,8 +68,7 @@ def run_training(cfg):
             change_sem_loss = sup_criterion(logits_change_sem, y_change)
 
             # semantic segmentation
-            y_sem_t1 = batch['y_sem_t1'].to(device)
-            y_sem_t2 = batch['y_sem_t2'].to(device)
+            y_sem_t1, y_sem_t2 = batch['y_sem_t1'].to(device), batch['y_sem_t2'].to(device)
 
             sem_t1_loss = sup_criterion(logits_sem_t1, y_sem_t1)
             sem_t2_loss = sup_criterion(logits_sem_t2, y_sem_t2)
@@ -85,7 +82,6 @@ def run_training(cfg):
             sup_loss_set.append(sup_loss.item())
 
             loss = sup_loss
-
             loss_set.append(loss.item())
 
             loss.backward()
@@ -146,64 +142,52 @@ def run_training(cfg):
 
         start = timeit.default_timer()
         change_loss_set, sem_loss_set, sup_loss_set, cons_loss_set, loss_set = [], [], [], [], []
-        dataloader = zip(cycle(labeled_dataloader), unlabeled_dataloader)
+        dataloader = iter(zip(helpers.cycle(labeled_dataloader), unlabeled_dataloader))
 
-        for i, batch in enumerate(dataloader):
+        for i, (labeled_batch, unlabeled_batch) in enumerate(dataloader):
 
             net.train()
             optimizer.zero_grad()
 
-            x_t1 = batch['x_t1'].to(device)
-            x_t2 = batch['x_t2'].to(device)
+            # supervised loss
+            x_t1_l, x_t2_l = labeled_batch['x_t1'].to(device), labeled_batch['x_t2'].to(device)
+            y_change = labeled_batch['y_change'].to(device)
+            y_sem_t1, y_sem_t2 = labeled_batch['y_sem_t1'].to(device), labeled_batch['y_sem_t2'].to(device)
 
-            logits_change, logits_sem_t1, logits_sem_t2 = net(x_t1, x_t2)
-            logits_change_sem = net.module.outc_change_sem(torch.cat((logits_sem_t1, logits_sem_t2), dim=1))
-            y_hat_change_sem = torch.sigmoid(logits_change_sem)
+            logits_l_change, logits_l_sem_t1, logits_l_sem_t2 = net(x_t1_l, x_t2_l)
+            logits_l_change_sem = net.module.outc_change_sem(torch.cat((logits_l_sem_t1, logits_l_sem_t2), dim=1))
 
-            sup_loss, cons_loss = None, None
+            # change detection
+            change_loss = sup_criterion(logits_l_change, y_change)
+            change_sem_loss = sup_criterion(logits_l_change_sem, y_change)
 
-            is_labeled = batch['is_labeled']
-            n_labeled += torch.sum(is_labeled).item()
-            if is_labeled.any():
-                # change detection
-                y_change = batch['y_change'].to(device)
-                change_loss = sup_criterion(logits_change[is_labeled], y_change[is_labeled])
-                change_sem_loss = sup_criterion(logits_change_sem[is_labeled], y_change[is_labeled])
+            # semantic segmentation
+            sem_t1_loss = sup_criterion(logits_l_sem_t1, y_sem_t1)
+            sem_t2_loss = sup_criterion(logits_l_sem_t2, y_sem_t2)
 
-                # semantic segmentation
-                y_sem_t1 = batch['y_sem_t1'].to(device)
-                y_sem_t2 = batch['y_sem_t2'].to(device)
+            change_loss = change_loss + change_sem_loss
+            sem_loss = (sem_t1_loss + sem_t2_loss) / 2
+            sup_loss = change_loss + sem_loss
 
-                sem_t1_loss = sup_criterion(logits_sem_t1[is_labeled], y_sem_t1[is_labeled])
-                sem_t2_loss = sup_criterion(logits_sem_t2[is_labeled], y_sem_t2[is_labeled])
+            change_loss_set.append(change_loss.item())
+            sem_loss_set.append(sem_loss.item())
+            sup_loss_set.append(sup_loss.item())
 
-                change_loss = change_loss + change_sem_loss
-                sem_loss = (sem_t1_loss + sem_t2_loss) / 2
-                sup_loss = change_loss + sem_loss
+            # unsupervised loss
+            x_t1_ul, x_t2_ul = unlabeled_batch['x_t1'].to(device), unlabeled_batch['x_t2'].to(device)
+            logits_ul_change, logits_ul_sem_t1, logits_ul_sem_t2 = net(x_t1_ul, x_t2_ul)
+            logits_ul_change_sem = net.module.outc_change_sem(torch.cat((logits_ul_sem_t1, logits_ul_sem_t2), dim=1))
+            y_hat_ul_change_sem = torch.sigmoid(logits_ul_change_sem)
 
-                change_loss_set.append(change_loss.item())
-                sem_loss_set.append(sem_loss.item())
-                sup_loss_set.append(sup_loss.item())
-
-            if not is_labeled.all():
-                is_not_labeled = torch.logical_not(is_labeled)
-                n_notlabeled += torch.sum(is_not_labeled).item()
-
-                if cfg.CONSISTENCY_TRAINER.LOSS_TYPE == 'L2':
-                    y_hat_change = torch.sigmoid(logits_change)
-                    cons_loss = cons_criterion(y_hat_change[is_not_labeled], y_hat_change_sem[is_not_labeled])
-                else:
-                    cons_loss = cons_criterion(logits_change[is_not_labeled], y_hat_change_sem[is_not_labeled,])
-                cons_loss = cons_loss * cfg.CONSISTENCY_TRAINER.LOSS_FACTOR
-                cons_loss_set.append(cons_loss.item())
-
-            if sup_loss is None and cons_loss is not None:
-                loss = cons_loss
-            elif sup_loss is not None and cons_loss is not None:
-                loss = sup_loss + cons_loss
+            if cfg.CONSISTENCY_TRAINER.LOSS_TYPE == 'L2':
+                y_hat_ul_change = torch.sigmoid(logits_ul_change)
+                cons_loss = cons_criterion(y_hat_ul_change, y_hat_ul_change_sem)
             else:
-                loss = sup_loss
+                cons_loss = cons_criterion(logits_ul_change, y_hat_ul_change_sem)
+            cons_loss = cons_loss * cfg.CONSISTENCY_TRAINER.LOSS_FACTOR
+            cons_loss_set.append(cons_loss.item())
 
+            loss = sup_loss + cons_loss
             loss_set.append(loss.item())
 
             loss.backward()
@@ -221,20 +205,19 @@ def run_training(cfg):
                     'sup_loss': np.mean(sup_loss_set) if len(sup_loss_set) > 0 else 0,
                     'cons_loss': np.mean(cons_loss_set) if len(cons_loss_set) > 0 else 0,
                     'loss': np.mean(loss_set),
-                    'labeled_percentage': n_labeled / (n_labeled + n_notlabeled) * 100,
+                    'labeled_percentage': 50,
                     'time': time,
                     'step': global_step,
                     'epoch': epoch_float,
                 })
                 start = timeit.default_timer()
-                n_labeled, n_notlabeled = 0, 0
                 change_loss_set, sem_loss_set, sup_loss_set, cons_loss_set, loss_set = [], [], [], [], []
             # end of batch
 
         assert (epoch == epoch_float)
         print(f'epoch float {epoch_float} (step {global_step}) - epoch {epoch}')
         # evaluation at the end of an epoch
-        _ = evaluation.model_evaluation_dt(net, cfg, 'train', epoch_float, global_step)
+        # _ = evaluation.model_evaluation_dt(net, cfg, 'train', epoch_float, global_step)
         f1_val = evaluation.model_evaluation_dt(net, cfg, 'val', epoch_float, global_step)
 
         if f1_val <= best_f1_val:
