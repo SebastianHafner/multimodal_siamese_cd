@@ -1,0 +1,12 @@
+_BASE_: "semicdbalanced_s1_base.yaml"
+
+TRAINER:
+  LR: 5e-5
+  BATCH_SIZE: 16
+
+DATALOADER:
+  TRAIN_PERCENTAGE: 40
+  SWAP_VAL_TEST: True
+
+CONSISTENCY_TRAINER:
+  LOSS_FACTOR: 0.1
