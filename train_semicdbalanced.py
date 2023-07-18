@@ -26,23 +26,15 @@ def run_training(cfg):
     unlabeled_dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train', only_unlabeled=True)
     print(labeled_dataset, unlabeled_dataset)
 
-    dataloader_kwargs_labeled = {
+    dataloader_kwargs = {
         'batch_size': int(cfg.TRAINER.BATCH_SIZE // 2),
         'num_workers': 0 if cfg.DEBUG else cfg.DATALOADER.NUM_WORKER,
         'shuffle': cfg.DATALOADER.SHUFFLE,
         'drop_last': False,
-        'pin_memory': False,
-        'persistent_workers': True,
+        'pin_memory': True,
     }
-    labeled_dataloader = torch_data.DataLoader(labeled_dataset, **dataloader_kwargs_labeled)
-    dataloader_kwargs_unlabeled = {
-        'batch_size': int(cfg.TRAINER.BATCH_SIZE // 2),
-        'num_workers': 0 if cfg.DEBUG else cfg.DATALOADER.NUM_WORKER,
-        'shuffle': cfg.DATALOADER.SHUFFLE,
-        'drop_last': True,
-        'pin_memory': False,
-    }
-    unlabeled_dataloader = torch_data.DataLoader(unlabeled_dataset, **dataloader_kwargs_unlabeled)
+    labeled_dataloader = torch_data.DataLoader(labeled_dataset, **dataloader_kwargs)
+    unlabeled_dataloader = torch_data.DataLoader(unlabeled_dataset, **dataloader_kwargs)
 
     # unpacking cfg
     epochs = cfg.TRAINER.EPOCHS
