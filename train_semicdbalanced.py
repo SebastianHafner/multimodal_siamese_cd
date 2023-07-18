@@ -30,7 +30,7 @@ def run_training(cfg):
         'batch_size': int(cfg.TRAINER.BATCH_SIZE // 2),
         'num_workers': 0 if cfg.DEBUG else cfg.DATALOADER.NUM_WORKER,
         'shuffle': cfg.DATALOADER.SHUFFLE,
-        'drop_last': False,
+        'drop_last': True,
         'pin_memory': True,
     }
     labeled_dataloader = torch_data.DataLoader(labeled_dataset, **dataloader_kwargs)
