@@ -219,8 +219,9 @@ class SemiCDUNet(nn.Module):
         # torch.manual_seed(self.cfg.SEED)
         # uni_dist = Uniform(-self.uniform_range, self.uniform_range)
         # noise_vector = uni_dist.sample(x.shape[1:]).to(x.device).unsqueeze(0)
-        # x_noise = x.mul(noise_vector) + x
-        x_noise = x
+        noise_vector = torch.FloatTensor(x.shape[1:]).uniform_(-self.uniform_range, self.uniform_range)
+        noise_vector = noise_vector.to(x.device).unsqueeze(0)
+        x_noise = x.mul(noise_vector) + x
         return x_noise
 
     def forward(self, x_t1: torch.Tensor, x_t2: torch.Tensor) -> tuple:

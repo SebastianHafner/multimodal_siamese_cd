@@ -68,9 +68,6 @@ def run_training(cfg):
 
             logits_change_l, _ = net(x_t1_l, x_t2_l)
 
-            # print(torch.sum(logits_change_l).item())
-
-
             change_loss = sup_criterion(logits_change_l, y_change)
             sup_loss = change_loss
             change_loss_set.append(change_loss.item())
@@ -93,8 +90,6 @@ def run_training(cfg):
             loss = sup_loss + cons_loss
             loss_set.append(loss.item())
 
-            # print(loss.item())
-
             loss.backward()
             optimizer.step()
 
@@ -103,7 +98,6 @@ def run_training(cfg):
 
             if global_step % cfg.LOGGING.FREQUENCY == 0:
                 print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
-                # print(np.mean(cons_loss_set))
                 time = timeit.default_timer() - start
                 wandb.log({
                     'change_loss': np.mean(change_loss_set),
