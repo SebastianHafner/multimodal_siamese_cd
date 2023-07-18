@@ -10,6 +10,7 @@ import wandb
 import numpy as np
 
 from utils import networks, datasets, loss_functions, evaluation, experiment_manager, parsers, helpers
+import random
 
 
 def run_training(cfg):
@@ -20,6 +21,11 @@ def run_training(cfg):
     sup_criterion = loss_functions.get_criterion(cfg.MODEL.LOSS_TYPE)
     cons_criterion = loss_functions.get_criterion(cfg.CONSISTENCY_TRAINER.LOSS_TYPE)
 
+    # reset the generators
+    labeled_dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train', disable_unlabeled=True)
+    unlabeled_dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train', only_unlabeled=True)
+    print(labeled_dataset, unlabeled_dataset)
+
     dataloader_kwargs = {
         'batch_size': int(cfg.TRAINER.BATCH_SIZE // 2),
         'num_workers': 0 if cfg.DEBUG else cfg.DATALOADER.NUM_WORKER,
@@ -27,6 +33,8 @@ def run_training(cfg):
         'drop_last': True,
         'pin_memory': True,
     }
+    labeled_dataloader = torch_data.DataLoader(labeled_dataset, **dataloader_kwargs)
+    unlabeled_dataloader = torch_data.DataLoader(unlabeled_dataset, **dataloader_kwargs)
 
     # unpacking cfg
     epochs = cfg.TRAINER.EPOCHS
@@ -37,14 +45,6 @@ def run_training(cfg):
     # early stopping
     best_f1_val, trigger_times = 0, 0
     stop_training = False
-
-    # reset the generators
-    labeled_dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train', disable_unlabeled=True)
-    unlabeled_dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train', only_unlabeled=True)
-    print(labeled_dataset, unlabeled_dataset)
-    dataloader_kwargs['batch_size'] = int(cfg.TRAINER.BATCH_SIZE // 2)
-    labeled_dataloader = torch_data.DataLoader(labeled_dataset, **dataloader_kwargs)
-    unlabeled_dataloader = torch_data.DataLoader(unlabeled_dataset, **dataloader_kwargs)
 
     steps_per_epoch = len(unlabeled_dataloader)
 
@@ -68,6 +68,9 @@ def run_training(cfg):
 
             logits_change_l, _ = net(x_t1_l, x_t2_l)
 
+            # print(torch.sum(logits_change_l).item())
+
+
             change_loss = sup_criterion(logits_change_l, y_change)
             sup_loss = change_loss
             change_loss_set.append(change_loss.item())
@@ -90,6 +93,8 @@ def run_training(cfg):
             loss = sup_loss + cons_loss
             loss_set.append(loss.item())
 
+            # print(loss.item())
+
             loss.backward()
             optimizer.step()
 
@@ -98,11 +103,12 @@ def run_training(cfg):
 
             if global_step % cfg.LOGGING.FREQUENCY == 0:
                 print(f'Logging step {global_step} (epoch {epoch_float:.2f}).')
+                # print(np.mean(cons_loss_set))
                 time = timeit.default_timer() - start
                 wandb.log({
-                    'change_loss': np.mean(change_loss_set) if len(change_loss_set) > 0 else 0,
-                    'sup_loss': np.mean(sup_loss_set) if len(sup_loss_set) > 0 else 0,
-                    'cons_loss': np.mean(cons_loss_set) if len(cons_loss_set) > 0 else 0,
+                    'change_loss': np.mean(change_loss_set),
+                    'sup_loss': np.mean(sup_loss_set),
+                    'cons_loss': np.mean(cons_loss_set),
                     'loss': np.mean(loss_set),
                     'labeled_percentage': 50,
                     'time': time,
@@ -148,6 +154,7 @@ if __name__ == '__main__':
     # make training deterministic
     torch.manual_seed(cfg.SEED)
     np.random.seed(cfg.SEED)
+    random.seed(cfg.SEED)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
