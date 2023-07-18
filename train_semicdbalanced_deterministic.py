@@ -31,9 +31,8 @@ def run_training(cfg):
         'num_workers': 0 if cfg.DEBUG else cfg.DATALOADER.NUM_WORKER,
         'shuffle': cfg.DATALOADER.SHUFFLE,
         'drop_last': True,
-        'pin_memory': False,
+        'pin_memory': True,
     }
-    labeled_dataloader = torch_data.DataLoader(labeled_dataset, **dataloader_kwargs)
     unlabeled_dataloader = torch_data.DataLoader(unlabeled_dataset, **dataloader_kwargs)
 
     # unpacking cfg
@@ -53,7 +52,6 @@ def run_training(cfg):
 
         start = timeit.default_timer()
         change_loss_set, sup_loss_set, cons_loss_set, loss_set = [], [], [], []
-        dataloader = iter(zip(helpers.cycle(labeled_dataloader), unlabeled_dataloader))
 
         for i, (labeled_batch, unlabeled_batch) in enumerate(dataloader):
 
@@ -69,7 +67,6 @@ def run_training(cfg):
             logits_change_l, _ = net(x_t1_l, x_t2_l)
 
             # print(torch.sum(logits_change_l).item())
-
 
             change_loss = sup_criterion(logits_change_l, y_change)
             sup_loss = change_loss
@@ -157,7 +154,6 @@ if __name__ == '__main__':
     random.seed(cfg.SEED)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-    torch.use_deterministic_algorithms(True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
