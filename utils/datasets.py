@@ -74,7 +74,7 @@ class MultimodalCDDataset(AbstractMultimodalCDDataset):
 
     def __init__(self, cfg: experiment_manager.CfgNode, run_type: str, no_augmentations: bool = False,
                  dataset_mode: str = None, disable_multiplier: bool = False, disable_unlabeled: bool = False,
-                 only_unlabeled: bool = False):
+                 only_unlabeled: bool = False, balanced: bool = False):
         super().__init__(cfg, run_type)
 
         self.dataset_mode = cfg.DATALOADER.DATASET_MODE if dataset_mode is None else dataset_mode
@@ -121,6 +121,21 @@ class MultimodalCDDataset(AbstractMultimodalCDDataset):
                     if aoi_id not in self.aoi_ids:
                         aoi_ids_unlabelled.append(aoi_id)
             aoi_ids_unlabelled = sorted(aoi_ids_unlabelled)
+
+            if balanced:
+                n_labeled, n_unlabeled = len(self.aoi_ids), len(aoi_ids_unlabelled)
+                if n_labeled <= n_unlabeled:  # pad the labeled samples
+                    multiplier = n_unlabeled // n_labeled
+                    n_diff = n_unlabeled % n_labeled
+                    random_indices = np.random.randint(0, n_labeled, n_diff)
+                    aoi_ids_balanced = self.aoi_ids * multiplier + [self.aoi_ids[i] for i in random_indices]
+                    self.aoi_ids = aoi_ids_balanced
+                    self.labeled = [True] * len(self.aoi_ids)
+                else:  # pad the unlabeled samples
+                    multiplier = n_labeled // n_unlabeled
+                    n_diff = n_labeled % n_unlabeled
+                    random_indices = np.random.randint(0, n_unlabeled, n_diff)
+                    aoi_ids_unlabelled = aoi_ids_unlabelled * multiplier + [aoi_ids_unlabelled for i in random_indices]
             self.aoi_ids.extend(aoi_ids_unlabelled)
             self.labeled.extend([False] * len(aoi_ids_unlabelled))
 
