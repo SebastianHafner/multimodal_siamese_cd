@@ -64,7 +64,6 @@ def run_training(cfg):
             x_t1_l = labeled_batch['x_t1'].to(device)
             x_t2_l = labeled_batch['x_t2'].to(device)
             y_change = labeled_batch['y_change'].to(device)
-            # print(f'{i}/{steps_per_epoch} {torch.sum(y_change).item()}')
 
             logits_change_l, _ = net(x_t1_l, x_t2_l)
 

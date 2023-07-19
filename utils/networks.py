@@ -213,16 +213,16 @@ class SemiCDUNet(nn.Module):
 
         self.feature_noise_decoder = Decoder(cfg)
         self.feature_noise_outc = OutConv(topology[0], n_classes)
-        self.uniform_range = 0.3
+        uniform_range = 0.3
+        self.uni_dist = Uniform(-uniform_range, uniform_range)
 
     def _add_feature_noise(self, x: torch.Tensor):
         # torch.manual_seed(self.cfg.SEED)
         # uni_dist = Uniform(-self.uniform_range, self.uniform_range)
-        # noise_vector = uni_dist.sample(x.shape[1:]).to(x.device).unsqueeze(0)
-        # torch.manual_seed(self.cfg.SEED)
         # noise_vector = torch.FloatTensor(x.shape[1:]).uniform_(-self.uniform_range, self.uniform_range)
-        noise_vector = (-self.uniform_range - self.uniform_range) * torch.rand(x.shape[1:]) + self.uniform_range
-        noise_vector = noise_vector.to(x.device).unsqueeze(0)
+        # noise_vector = (-self.uniform_range - self.uniform_range) * torch.rand(x.shape[1:]) + self.uniform_range
+        # noise_vector = noise_vector.to(x.device).unsqueeze(0)
+        noise_vector = self.uni_dist.sample(x.shape[1:]).to(x.device).unsqueeze(0)
         x_noise = x.mul(noise_vector) + x
         return x_noise
 
