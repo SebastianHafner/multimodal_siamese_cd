@@ -16,7 +16,7 @@ if __name__ == '__main__':
     cfg = experiment_manager.setup_cfg(args)
 
     sweep_dir = Path(cfg.PATHS.OUTPUT) / 'sweeps' / cfg.NAME
-    sweep_dir.parent.mkdir(exist_ok=True)
+    sweep_dir.mkdir(exist_ok=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print('=== Runnning on device: p', device)
