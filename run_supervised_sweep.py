@@ -130,7 +130,9 @@ if __name__ == '__main__':
 
             sweep_data_file = sweep_dir / 'data.json'
             sweep_data = geofiles.load_json(sweep_data_file)
+            best_f1_val = float(best_f1_val.item())
             if best_f1_val > sweep_data['sweep_best_f1_val']:
+                print(f'best so far ({best_f1_val:.3f})')
                 sweep_data['sweep_best_f1_val'] = best_f1_val
                 sweep_data['lr'] = sweep_cfg.lr
                 sweep_data['batch_size'] = sweep_cfg.batch_size
