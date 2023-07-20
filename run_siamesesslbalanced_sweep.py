@@ -199,7 +199,7 @@ if __name__ == '__main__':
                         cons_loss = cons_criterion(y_hat_ul_change, y_hat_ul_change_sem)
                     else:
                         cons_loss = cons_criterion(logits_ul_change, y_hat_ul_change_sem)
-                    cons_loss = cons_loss * cfg.CONSISTENCY_TRAINER.LOSS_FACTOR
+                    cons_loss = cons_loss * sweep_cfg.loss_factor
                     cons_loss_set.append(cons_loss.item())
 
                     loss = sup_loss + cons_loss
