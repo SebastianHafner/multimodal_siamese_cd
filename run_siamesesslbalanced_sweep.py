@@ -144,7 +144,7 @@ if __name__ == '__main__':
             labeled_dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train', disable_unlabeled=True)
             unlabeled_dataset = datasets.MultimodalCDDataset(cfg=cfg, run_type='train', only_unlabeled=True)
             print(labeled_dataset, unlabeled_dataset)
-            dataloader_kwargs['batch_size'] = int(cfg.TRAINER.BATCH_SIZE // 2)
+            dataloader_kwargs['batch_size'] = int(sweep_cfg.batch_size // 2)
             labeled_dataloader = torch_data.DataLoader(labeled_dataset, **dataloader_kwargs)
             unlabeled_dataloader = torch_data.DataLoader(unlabeled_dataset, **dataloader_kwargs)
 
